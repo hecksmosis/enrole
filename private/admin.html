@@ -80,19 +80,18 @@
 
         function roomadd() {
             socket.emit("addRoom", {
+                uname: document.cookie.match(/username=([^;]+)/)[1],
                 name: document.getElementById("name").value,
                 type: document.getElementById("type").value
             });
         }
 
         function useradd() {
-            if (document.getElementById("pword").value != document.getElementById("cpword").value) {
-                alert("Passwords do not match");
-                return;
-            }
             socket.emit("addUser", {
+                uname: document.cookie.match(/username=([^;]+)/)[1],
                 name: document.getElementById("uname").value,
                 pword: document.getElementById("pword").value,
+                pword2: document.getElementById("cpword").value,
                 isAdmin: document.getElementById("admin").checked
             });
         }

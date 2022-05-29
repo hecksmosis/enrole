@@ -9,14 +9,45 @@ const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const { createReadStream } = require('fs');
+const bcrypt = require('bcrypt');
+const session = require('express-session');
+const flash = require('express-flash');
+
+// postgresql setup
+const { Pool } = require('pg');
+const isProduction = process.env.NODE_ENV === 'production';
+console.log(isProduction);
+var pool;
+if (isProduction) {
+    pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: true
+    });
+} else {
+    pool = new Pool({
+        user: 'rhqgfddocuiftw',
+        host: 'ec2-54-211-255-161.compute-1.amazonaws.com',
+        database: 'd8hs985v1cid97',
+        port: 5432,
+        password: '5bb7d6571aa254730bffd0c7b74f98027d1d12bbc7134e178bd1e147c6f013f0',
+        ssl: { rejectUnauthorized: false },
+    });
+}
 
 // lists
 var users = [];
-
-//db based lists
-var rooms = JSON.parse(fs.readFileSync(__dirname + '/private/db.json', 'utf8')).rooms;
-var admins = JSON.parse(fs.readFileSync(__dirname + '/private/db.json', 'utf8')).admins;
-var USERS = JSON.parse(fs.readFileSync(__dirname + '/private/db.json', 'utf8')).USERS;
+var rooms = [];
+pool.query('SELECT * FROM rooms', (err, res) => {
+    if (err) {
+        console.log(err);
+    } else {
+        rooms = res.rows;
+        rooms.forEach((room) => {
+            room.users = [];
+        });
+        console.log(rooms);
+    }
+});
 
 // static files
 app.use(express.static(__dirname + '/public'));
@@ -27,17 +58,21 @@ app.use(cookieParser());
 
 app.get("/room", function(req, res) {
     if (req.query.room) {
-        if (rooms.filter((room => room.name === req.query.room)).length > 0) {
-            const roomtype = rooms.filter((room => room.name === req.query.room))[0].type;
-            console.log(roomtype);
-            if (roomtype === "Chat") {
-                res.sendFile(__dirname + '/private/room.html');
-            } else if (roomtype === "Game") {
-                res.sendFile(__dirname + '/private/game.html');
+        pool.query(`SELECT * FROM rooms WHERE name = '${req.query.room}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    if (result.rows[0].type === "chat") {
+                        res.sendFile(__dirname + '/public/room.html');
+                    } else {
+                        res.sendFile(__dirname + '/public/game.html');
+                    }
+                } else {
+                    res.sendStatus(404);
+                }
             }
-        } else {
-            res.sendStatus(404);
-        }
+        });
     } else {
         res.sendStatus(404);
     }
@@ -46,24 +81,86 @@ app.get("/room", function(req, res) {
 app.get("/", function(req, res) {
     const username = req.cookies.username;
 
-    if (USERS[username]) {
-        res.sendFile(__dirname + '/private/main.html');
-    } else {
-        res.sendFile(__dirname + "/public/root.html");
-    }
+    pool.query(`SELECT * FROM users WHERE name = '${username}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            if (result.rowCount > 0) {
+                res.sendFile(__dirname + '/private/main.html');
+            } else {
+                res.sendFile(__dirname + '/public/root.html');
+            }
+        }
+    });
 });
 
 // private routes
 app.post("/login", function(req, res) {
     const username = req.body.uname;
-    const password = USERS[username];
+    const password = req.body.pword;
 
-    if (password === req.body.pword) {
-        res.cookie('username', username, { maxAge: 900000 });
-        res.redirect("/");
+    if (!username || !password) {
+        res.redirect("/?error=invalid-credentials");
+        return;
     }
 
-    res.redirect("/?error=invalid-credentials");
+    pool.query(`SELECT * FROM users WHERE name = '${username}'`, async(err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            if (result.rowCount > 0) {
+                if (bcrypt.compareSync(password, result.rows[0].password)) {
+                    res.cookie('username', username);
+                    const hashedPass = await bcrypt.hash(password, 10);
+                    res.cookie('password', hashedPass);
+                    res.redirect('/');
+                } else {
+                    res.redirect('/?error=invalid-credentials');
+                }
+            } else {
+                res.redirect('/?error=invalid-credentials');
+            }
+        }
+    });
+});
+
+// signup route
+app.post("/signup", async function(req, res) {
+    const username = req.body.uname;
+    const password = req.body.pword;
+    const password2 = req.body.pword2;
+
+    if (!username || !password || !password2 || password !== password2 || password.length < 8) {
+        res.redirect("/?error=invalid-signup");
+    } else {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        pool.query(
+            `SELECT * FROM users WHERE name = '${username}'`,
+            (err, result) => {
+                if (err) {
+                    console.log(err);
+                    res.redirect("/?error=invalid-signup");
+                } else {
+                    if (result.rowCount > 0) {
+                        res.redirect("/?error=invalid-signup");
+                    } else {
+                        pool.query(
+                            `INSERT INTO users (name, password) VALUES ('${username}', '${hashedPassword}')`,
+                            (err, result) => {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    res.cookie('username', username, { maxAge: 900000 });
+                                    res.redirect("/");
+                                }
+                            }
+                        );
+                    }
+                }
+            }
+        );
+    }
 });
 
 // routing for logout
@@ -76,12 +173,22 @@ app.get('/logout', (req, res) => {
 app.get("/admin", function(req, res) {
     const username = req.cookies.username;
 
-    if (admins[username]) {
-        res.cookie('password', admins[username]);
-        res.sendFile(__dirname + '/private/admin.html');
-    } else {
-        res.redirect("/?error=not-admin");
-    }
+    pool.query(`SELECT * FROM users WHERE name = '${username}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            if (result.rowCount > 0) {
+                if (result.rows[0].admin) {
+                    console.log(result.rows[0]);
+                    res.sendFile(__dirname + '/private/admin.html');
+                } else {
+                    res.redirect("/?error=not-admin");
+                }
+            } else {
+                res.redirect("/?error=not-admin");
+            }
+        }
+    });
 });
 
 // socket io connections
@@ -89,113 +196,228 @@ io.on('connection', function(socket) {
     console.log('a user connected');
     users[socket.id] = socket;
 
-    socket.on("getRooms", async function() {
-        socket.emit("rooms", rooms);
-        socket.isLobby = true;
-        socket.isAdmin = false;
-        delete users[socket.id];
+    socket.on("getRooms", async function(data) {
+        pool.query('SELECT * FROM rooms', (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                socket.emit("rooms", result.rows);
+                socket.isLobby = true;
+                delete users[socket.id];
+            }
+        });
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    if (result.rows[0].admin === 't') {
+                        socket.isAdmin = true;
+                    }
+                }
+            }
+        });
     });
 
-    socket.on("isAdmin", function(data) {
-        if (!admins[data.uname]) {
-            return;
-        }
-        admin_pword = admins[data.uname];
-        if (admin_pword === data.pword) {
-            socket.isAdmin = true;
-            socket.isLobby = false;
-        }
+    socket.on("isAdmin", async function(data) {
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    if (bcrypt.compareSync(data.pword, result.rows[0].password)) {
+                        if (result.rows[0].admin) {
+                            socket.isAdmin = true;
+                            socket.isLobby = false;
+                            console.log("is admin");
+                        }
+                    }
+                }
+            }
+        });
     });
 
     socket.on("addRoom", function(data) {
-        if (!socket.isAdmin) return;
-        if (!data) return;
-        if (data.name === "") return;
-        equal_rooms = rooms.filter((room) => {
-            return room.name === data.name;
+        console.log("adding room");
+        console.log(data.uname);
+        var permitted = false;
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    // if user is admin
+                    console.log(result.rows);
+                    console.log(result.rows[0].admin);
+                    if (result.rows[0].admin) {
+                        console.log("admin");
+                        if (!data) return;
+                        console.log("data");
+                        if (data.name === "") return;
+                        console.log("passed tests");
+                        pool.query(
+                            `SELECT * FROM rooms WHERE name = '${data.name}'`,
+                            (err, result) => {
+                                if (err) {
+                                    console.log(err);
+                                    socket.emit("invalidRoom", "Invalid room name.");
+                                } else {
+                                    if (result.rowCount > 0) {
+                                        socket.emit("invalidRoom", "Room already exists.");
+                                    } else {
+                                        const type = data.type === "Chat" ? "chat" : "game";
+                                        pool.query(
+                                            `INSERT INTO rooms (name, type) VALUES ('${data.name}', '${type}')`,
+                                            (err, result) => {
+                                                if (err) {
+                                                    console.log(err);
+                                                    socket.emit("invalidRoom", "Invalid room type.");
+                                                } else {
+                                                    socket.emit("success", "Room added.");
+                                                    rooms[rooms.length - 1].users = [];
+                                                    pool.query('SELECT * FROM rooms', (err, result) => {
+                                                        if (err) {
+                                                            console.log(err);
+                                                        } else {
+                                                            io.emit("rooms", result.rows);
+                                                            console.log("rooms before", rooms);
+                                                            users_rooms = [];
+                                                            rooms.forEach((room) => {
+                                                                users_rooms.push(room.users);
+                                                            });
+                                                            console.log(users_rooms);
+                                                            rooms = result.rows;
+                                                            rooms.forEach((room) => {
+                                                                room.users = users_rooms[rooms.indexOf(room)];
+                                                            });
+                                                            console.log("rooms after", rooms);
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        );
+                                    }
+                                }
+                            }
+                        );
+                    } else {
+                        permitted = false;
+                    }
+                } else {
+                    permitted = false;
+                }
+            }
         });
-        console.log("add rooms rooms: ", rooms);
-        console.log("add rooms equal_rooms: ", equal_rooms);
-        if (equal_rooms.length > 0) {
-            socket.emit("invalidRoom", "Room already exists.");
-            return;
-        }
-        added_room = {
-            name: data.name,
-            users: [],
-            type: data.type || "Chat"
-        };
-        rooms.push(added_room);
-        let file = __dirname + '/private/db.json';
-        let storage = JSON.parse(fs.readFileSync(file, 'utf8'));
-        storage.rooms = rooms;
-        fs.writeFileSync(file, JSON.stringify(storage));
-        socket.emit("success", "Room added.");
 
-        io.emit("rooms", rooms);
-        console.log(rooms);
+
     });
 
-    // TODO: finish adduser
-    socket.on("addUser", function(data) {
+    socket.on("addUser", async function(data) {
         console.log("adduser");
-        if (!socket.isAdmin) return;
+        var permitted = false;
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    // if user is admin
+                    if (result.rows[0].admin) {
+                        permitted = true;
+                    } else {
+                        permitted = false;
+                    }
+                } else {
+                    permitted = false;
+                }
+            }
+        });
+        if (!permitted) return;
+        console.log("isadmin");
         if (!data) return;
+        console.log("data");
         if (data.uname === "") return;
-        equal_users = USERS[data.uname];
-        console.log("add users users: ", USERS);
-        console.log("add users equal_users: ", equal_users);
-        if (equal_users) {
-            socket.emit("invalidUser", "User already exists.");
-            return;
-        }
-
-        USERS[data.name] = data.pword;
-        if (data.isAdmin) admins[data.name] = data.pword;
-        let file = __dirname + '/private/db.json';
-        let storage = JSON.parse(fs.readFileSync(file, 'utf8'));
-        storage.admins = admins;
-        storage.USERS = USERS;
-        fs.writeFileSync(file, JSON.stringify(storage));
-        socket.emit("success", "User added.");
-
-        console.log(USERS);
+        console.log("uname");
+        if (data.pword === "") return;
+        console.log("pword");
+        if (data.pword !== data.pword2) return;
+        console.log("pword2");
+        if (data.pword.length < 8) return;
+        console.log("pword length");
+        const hashedPassword = await bcrypt.hash(data.pword, 10);
+        pool.query(
+            `SELECT * FROM users WHERE name = '${data.uname}'`,
+            (err, result) => {
+                if (err) {
+                    console.log(err);
+                    socket.emit("invalidUser", "Invalid user name.");
+                } else {
+                    if (result.rowCount > 0) {
+                        socket.emit("invalidUser", "User already exists.");
+                    } else {
+                        pool.query(
+                            `INSERT INTO users (name, password, admin) VALUES ('${data.uname}', '${hashedPassword}', '${data.isAdmin}')`,
+                            (err, result) => {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    socket.emit("success", "User added.");
+                                }
+                            }
+                        );
+                    }
+                }
+            }
+        );
     });
 
     socket.on("roomType", async function(roomName) {
-        for (var i = 0; i < rooms.length; i++) {
-            if (rooms[i].name === roomName) {
-                socket.emit("roomType", rooms[i].type);
+        pool.query(`SELECT * FROM rooms WHERE name = '${roomName}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    socket.emit("roomType", result.rows[0].type);
+                }
             }
-        }
+        });
     });
 
     // on joinRoom
     socket.on("joinRoom", function({ room, username }) {
         console.log("joining room: ", room);
-        let sel_room = rooms.filter((i_room) => {
-            return i_room.name === room;
+        rooms.query(`SELECT * FROM rooms WHERE name = '${room}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    socket.current_room = result.rows[0];
+                    let sel_room = rooms.filter((i_room) => {
+                        return i_room.name === room;
+                    });
+                    sel_room = sel_room[0];
+                    if (sel_room.users.indexOf(username) !== -1) {
+                        console.log("is in room");
+                        socket.emit("users", null);
+                        return;
+                    }
+                    socket.username = username;
+                    socket.isLobby = false;
+                    if (sel_room.type === 'Chat') {
+                        socket.join(room);
+                        sel_room.users.push(socket.username);
+                        console.log("User " + socket.username + " joined room " + room);
+                        io.to(room).emit("users", sel_room.users);
+                        socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
+                    } else
+                    if (sel_room.type === 'Game') {
+                        // TODO: Game room shit
+                        socket.emit('message', messageFormatter("system", "System", "Game room is not yet implemented."));
+                    }
+                } else {
+                    socket.emit("invalidRoom", "Invalid room name.");
+                }
+            }
         });
-        sel_room = sel_room[0];
-        socket.current_room = room;
-        if (sel_room.users.indexOf(username) !== -1) {
-            console.log("is in room");
-            socket.emit("users", null);
-            return;
-        }
-        socket.username = username;
-        socket.isLobby = false;
-        socket.isAdmin = false;
-        if (sel_room.type === 'Chat') {
-            socket.join(room);
-            sel_room.users.push(socket.username);
-            console.log("User " + socket.username + " joined room " + room);
-            io.to(room).emit("users", sel_room.users);
-            socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
-        } else
-        if (sel_room.type === 'Game') {
-            socket.emit('message', messageFormatter("system", "System", "Game room is not yet implemented."));
-        }
     });
 
     socket.on("chatMessage", function(msg) {

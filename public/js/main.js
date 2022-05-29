@@ -19,7 +19,9 @@ if (!document.cookie.match(/username=([^;]+)/)) { // if cookie does not exist
 document.getElementById("username").innerHTML = document.cookie.match(/username=([^;]+)/)[1];
 
 // emit getRooms
-socket.emit("getRooms");
+socket.emit("getRooms", {
+    uname: document.cookie.match(/username=([^;]+)/)[1]
+});
 
 // receive response and append it to the html
 socket.on("rooms", function(data) {

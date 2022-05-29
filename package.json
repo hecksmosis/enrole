@@ -10,11 +10,17 @@
     "author": "Pablo García Ruiz",
     "license": "ISC",
     "dependencies": {
+        "bcrypt": "^5.0.1",
         "body-parser": "^1.20.0",
         "cookie-parser": "^1.4.6",
         "crypto": "^1.0.1",
+        "ejs": "^3.1.8",
         "express": "^4.18.1",
+        "express-flash": "^0.0.2",
+        "express-session": "^1.17.3",
         "moment": "^2.29.3",
+        "pg": "^8.7.3",
+        "postgresql": "^0.0.1",
         "socket.io": "^4.5.1"
     }
 }

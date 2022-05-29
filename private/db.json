@@ -1,16 +1,1 @@
-{
-    "rooms": [
-        { "name": "general", "users": [], "type": "Chat" },
-        { "name": "game1", "users": [], "type": "Game" },
-        { "name": "dnd", "users": [], "type": "Chat" }
-    ],
-    "USERS": {
-        "admin": "admin",
-        "admin2": "admin2",
-        "test": "test",
-        "test2": "test2",
-        "pgruiz": "pgruiz",
-        "master": "master"
-    },
-    "admins": { "admin": "admin", "admin2": "admin2", "master": "master" }
-}
+{"rooms":[{"name":"general","users":[],"type":"Chat"},{"name":"game1","users":[],"type":"Game"},{"name":"dnd","users":[],"type":"Chat"}],"admins":{"admin":"admin","admin2":"admin2","master":"master"},"USERS":{"admin":"admin","admin2":"admin2","test":"test","test2":"test2","pgruiz":"$2b$10$p2vRst5wzWsJPq3GGEdRG.8H.lPliKgUWFZqoijCIRXBBkxXevwxy","master":"master","megamind":"mindmega"}}

@@ -237,6 +237,24 @@ a {
     width: 100%;
 }
 
+.float-right {
+    float: right;
+    align-items: space-between;
+    margin: auto;
+}
+
+.float-left {
+    float: left;
+    align-items: space-between;
+    margin: auto;
+}
+
+#root-body {
+    align-items: space-between;
+    padding-left: 15%;
+    padding-right: 15%;
+}
+
 @media (max-width: 700px) {
     .chat-main {
         display: block;

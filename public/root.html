@@ -10,8 +10,8 @@
     <link rel="stylesheet" href="/css/main.css" />
 </head>
 
-<body>
-    <div class="join-container">
+<body id="root-body">
+    <div class="join-container float-left">
         <header class="join-header">
             <h1>D&D login</h1>
         </header>
@@ -28,12 +28,36 @@
                 <button type="submit" class="btn">Access</button>
             </form>
         </div>
+    </div>
+    <div class="join-container float-right">
+        <header class="join-header">
+            <h1>D&D signup</h1>
+        </header>
+        <div class="join-admin">
+            <form action="/signup" method="post">
+                <div class="form-control">
+                    <label for="name">Username</label>
+                    <input type="text" name="uname" placeholder="Enter username" required />
+                </div>
+                <div class="form-control">
+                    <label for="name">Password</label>
+                    <input type="text" name="pword" placeholder="Enter password" required />
+                </div>
+                <div class="form-control">
+                    <label for="name">Password</label>
+                    <input type="text" name="pword2" placeholder="Enter password" required />
+                </div>
+                <button type="submit" class="btn">Access</button>
+            </form>
+        </div>
         <script>
             const queryString = window.location.search;
             const urlParams = new URLSearchParams(queryString);
 
             if (urlParams.get('error') === 'invalid-credentials') {
                 alert('Incorrect username or password');
+            } else if (urlParams.get('error') === 'invalid-signup') {
+                alert('Signup error. Please confirm that every password contains 8 characters and that the passwords match, as well as filling in every field.');
             }
         </script>
     </div>
