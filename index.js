@@ -58,15 +58,16 @@ app.use(cookieParser());
 
 app.get("/room", function(req, res) {
     if (req.query.room) {
+        console.log(req.query.room);
         pool.query(`SELECT * FROM rooms WHERE name = '${req.query.room}'`, (err, result) => {
             if (err) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
                     if (result.rows[0].type === "chat") {
-                        res.sendFile(__dirname + '/public/room.html');
+                        res.sendFile(__dirname + '/private/room.html');
                     } else {
-                        res.sendFile(__dirname + '/public/game.html');
+                        res.sendFile(__dirname + '/private/game.html');
                     }
                 } else {
                     res.sendStatus(404);
