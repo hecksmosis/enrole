@@ -337,7 +337,7 @@ io.on('connection', function(socket) {
                         console.log("pword length");
                         const hashedPassword = await bcrypt.hash(data.pword, 10);
                         pool.query(
-                            `SELECT * FROM users WHERE name = '${data.uname}'`,
+                            `SELECT * FROM users WHERE name = '${data.name}'`,
                             (err, result) => {
                                 if (err) {
                                     console.log(err);
@@ -347,7 +347,7 @@ io.on('connection', function(socket) {
                                         socket.emit("invalidUser", "User already exists.");
                                     } else {
                                         pool.query(
-                                            `INSERT INTO users (name, password, admin) VALUES ('${data.uname}', '${hashedPassword}', '${data.isAdmin}')`,
+                                            `INSERT INTO users (name, password, admin) VALUES ('${data.name}', '${hashedPassword}', '${data.isAdmin}')`,
                                             (err, result) => {
                                                 if (err) {
                                                     console.log(err);
