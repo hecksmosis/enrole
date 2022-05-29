@@ -387,7 +387,7 @@ io.on('connection', function(socket) {
     // on joinRoom
     socket.on("joinRoom", function({ room, username }) {
         console.log("joining room: ", room);
-        rooms.query(`SELECT * FROM rooms WHERE name = '${room}'`, (err, result) => {
+        pool.query(`SELECT * FROM rooms WHERE name = '${room}'`, (err, result) => {
             if (err) {
                 console.log(err);
             } else {
