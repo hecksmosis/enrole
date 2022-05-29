@@ -315,7 +315,7 @@ io.on('connection', function(socket) {
     socket.on("addUser", async function(data) {
         console.log("adduser");
         var permitted = false;
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, async(err, result) => {
             if (err) {
                 console.log(err);
             } else {
@@ -323,6 +323,43 @@ io.on('connection', function(socket) {
                     // if user is admin
                     if (result.rows[0].admin) {
                         permitted = true;
+                        if (!permitted) return;
+                        console.log("isadmin");
+                        if (!data) return;
+                        console.log("data");
+                        if (data.uname === "") return;
+                        console.log("uname");
+                        if (data.pword === "") return;
+                        console.log("pword");
+                        if (data.pword !== data.pword2) return;
+                        console.log("pword2");
+                        if (data.pword.length < 8) return;
+                        console.log("pword length");
+                        const hashedPassword = await bcrypt.hash(data.pword, 10);
+                        pool.query(
+                            `SELECT * FROM users WHERE name = '${data.uname}'`,
+                            (err, result) => {
+                                if (err) {
+                                    console.log(err);
+                                    socket.emit("invalidUser", "Invalid user name.");
+                                } else {
+                                    if (result.rowCount > 0) {
+                                        socket.emit("invalidUser", "User already exists.");
+                                    } else {
+                                        pool.query(
+                                            `INSERT INTO users (name, password, admin) VALUES ('${data.uname}', '${hashedPassword}', '${data.isAdmin}')`,
+                                            (err, result) => {
+                                                if (err) {
+                                                    console.log(err);
+                                                } else {
+                                                    socket.emit("success", "User added.");
+                                                }
+                                            }
+                                        );
+                                    }
+                                }
+                            }
+                        );
                     } else {
                         permitted = false;
                     }
@@ -331,43 +368,7 @@ io.on('connection', function(socket) {
                 }
             }
         });
-        if (!permitted) return;
-        console.log("isadmin");
-        if (!data) return;
-        console.log("data");
-        if (data.uname === "") return;
-        console.log("uname");
-        if (data.pword === "") return;
-        console.log("pword");
-        if (data.pword !== data.pword2) return;
-        console.log("pword2");
-        if (data.pword.length < 8) return;
-        console.log("pword length");
-        const hashedPassword = await bcrypt.hash(data.pword, 10);
-        pool.query(
-            `SELECT * FROM users WHERE name = '${data.uname}'`,
-            (err, result) => {
-                if (err) {
-                    console.log(err);
-                    socket.emit("invalidUser", "Invalid user name.");
-                } else {
-                    if (result.rowCount > 0) {
-                        socket.emit("invalidUser", "User already exists.");
-                    } else {
-                        pool.query(
-                            `INSERT INTO users (name, password, admin) VALUES ('${data.uname}', '${hashedPassword}', '${data.isAdmin}')`,
-                            (err, result) => {
-                                if (err) {
-                                    console.log(err);
-                                } else {
-                                    socket.emit("success", "User added.");
-                                }
-                            }
-                        );
-                    }
-                }
-            }
-        );
+
     });
 
     socket.on("roomType", async function(roomName) {
