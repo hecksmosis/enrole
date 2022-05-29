@@ -21,6 +21,7 @@ socket.emit("joinRoom", {
 socket.emit("getUsers", urlParams.get("room"));
 
 socket.on('message', function(data) {
+    console.log("we got a message");
     if (data.type === 'system') {
         outputMessage(data);
         console.log(data.content);

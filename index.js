@@ -67,7 +67,9 @@ app.get("/room", function(req, res) {
                     if (result.rows[0].type === "chat") {
                         res.sendFile(__dirname + '/private/room.html');
                     } else {
-                        res.sendFile(__dirname + '/private/game.html');
+                        res.send("WORK IN PROGRESS");
+
+                        //res.sendFile(__dirname + '/private/game.html');
                     }
                 } else {
                     res.sendStatus(404);
@@ -392,7 +394,6 @@ io.on('connection', function(socket) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
-                    socket.current_room = result.rows[0];
                     let sel_room = rooms.filter((i_room) => {
                         return i_room.name === room;
                     });
@@ -402,16 +403,18 @@ io.on('connection', function(socket) {
                         socket.emit("users", null);
                         return;
                     }
+                    socket.current_room = sel_room.name;
                     socket.username = username;
                     socket.isLobby = false;
-                    if (sel_room.type === 'Chat') {
+                    if (sel_room.type === 'chat') {
+                        console.log(room);
                         socket.join(room);
                         sel_room.users.push(socket.username);
                         console.log("User " + socket.username + " joined room " + room);
                         io.to(room).emit("users", sel_room.users);
                         socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
                     } else
-                    if (sel_room.type === 'Game') {
+                    if (sel_room.type === 'game') {
                         // TODO: Game room shit
                         socket.emit('message', messageFormatter("system", "System", "Game room is not yet implemented."));
                     }
@@ -423,9 +426,14 @@ io.on('connection', function(socket) {
     });
 
     socket.on("chatMessage", function(msg) {
+        console.log("sending message");
         if (!socket.isLobby) {
+            console.log("not lobby");
+            console.log(socket.current_room);
             io.to(socket.current_room).emit('message', messageFormatter("user", socket.username, msg));
+            return;
         }
+        console.log("yes lobby");
     });
 
     socket.on("getUsers", function(room) {
