@@ -17,7 +17,6 @@ body {
     font-family: 'Roboto', sans-serif;
     font-size: 16px;
     background: var(--light-color);
-    margin: 20px;
 }
 
 ul {
@@ -132,7 +131,7 @@ a {
 
 .join-container {
     max-width: 500px;
-    margin: 80px auto;
+    margin: 40px auto auto auto;
     color: #fff;
 }
 
@@ -147,6 +146,7 @@ a {
 .join-main {
     padding: 30px 40px;
     background: var(--dark-color-b);
+    margin-bottom: 20px;
 }
 
 .join-main p {
@@ -154,7 +154,15 @@ a {
 }
 
 .join-main .form-control {
-    margin-bottom: 20px;
+    margin-bottom: 5px;
+    background-color: var(--dark-color-b);
+    border: 0px;
+}
+
+.join-main .form-control.last {
+    margin-bottom: 0;
+    background-color: var(--dark-color-b);
+    border: 0px;
 }
 
 .join-main label {
@@ -203,7 +211,9 @@ a {
 }
 
 .join-admin .form-control {
-    margin-bottom: 20px;
+    margin-bottom: 5px;
+    background-color: var(--dark-color-b);
+    border: 0px;
 }
 
 .join-admin label {
@@ -249,10 +259,8 @@ a {
     margin: auto;
 }
 
-#root-body {
-    align-items: space-between;
-    padding-left: 15%;
-    padding-right: 15%;
+body {
+    background: var(--light-color);
 }
 
 @media (max-width: 700px) {

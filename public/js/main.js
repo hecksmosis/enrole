@@ -16,8 +16,10 @@ if (urlParams.length !== 0) {
 if (!document.cookie.match(/username=([^;]+)/)) { // if cookie does not exist
     window.location = '/';
 }
-document.getElementById("username").innerHTML = document.cookie.match(/username=([^;]+)/)[1];
-
+window.onload = () => {
+    document.getElementById("username").innerText = document.cookie.match(/username=([^;]+)/)[1];
+    console.log("i did shit");
+};
 // emit getRooms
 socket.emit("getRooms", {
     uname: document.cookie.match(/username=([^;]+)/)[1]

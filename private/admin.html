@@ -6,51 +6,116 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administration</title>
+    <!--import bootstrap css and js-->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
     <link rel="stylesheet" href="/css/main.css">
     <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
-    <div class="join-container">
-        <header class="chat-header">
-            <h1>Administration</h1>
-            <p>Logged in as: <b id="username"></b></p>
-            <a id="leave-btn" class="btn">Home</a>
-        </header>
-        <div class="join-admin">
-            <div class="form-control">
-                <label for="name">Room name</label>
-                <input type="text" name="name" placeholder="Enter room name" id="name">
+    <nav class="navbar navbar-light" style="background-color: #eba85c; padding-right: 20px; padding-left: 20px; align-items: center;">
+        <a class="navbar-brand" href="#">Administration</a>
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+                <a class="nav-link" href="/" id="leave-btn">Home</a>
+            </li>
+        </ul>
+        <a class="navbar-text" href="/">Logged in as: <b id="username"></b></a>
+    </nav>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-body">
+                        <h5 class="card-title">Users</h5>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Username</th>
+                                    <th scope="col">Roles</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table">
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="form-control">
-                <label for="type">Room type</label>
-                <select name="type" id="type">
-                    <option value="Chat">Chat</option>
-                    <option value="Game">Game</option>
-                </select>
-            </div>
-            <button class="btn" id="submit" onclick="roomadd()">Add room</button>
         </div>
-        <div class="separator"></div>
-        <div class="join-admin">
-            <div class="form-control">
-                <label for="name">Username</label>
-                <input type="text" name="uname" placeholder="Enter username" id="uname">
+        <div class="row">
+            <!-- add user form -->
+            <div class="col-md-12">
+                <div class="card" style="margin-top: 20px; margin-bottom: 10px; ">
+                    <div class="card-body">
+                        <h5 class="card-title">Add user</h5>
+                        <form id="add-user-form">
+                            <div class="form-group">
+                                <label for="uname">Username</label>
+                                <input type="text" class="form-control" id="uname" placeholder="Username">
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Password</label>
+                                <input type="password" class="form-control" id="password" placeholder="Password">
+                            </div>
+                            <div class="form-group">
+                                <label for="cpassword">Confirm password</label>
+                                <input type="password" class="form-control" id="cpassword" placeholder="Confirm password">
+                            </div>
+                            <!-- accept more than one role -->
+
+                            <div class="form-group">
+                                <label for="role">Roles</label>
+                                <div class="role" id="role">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add user</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="form-control">
-                <label for="name">Password</label>
-                <input type="text" name="pword" placeholder="Enter password" id="pword">
+        </div>
+        <!-- add rooms table and form -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card" style="margin-top: 20px; margin-bottom: 10px; ">
+                    <div class="card-body">
+                        <h5 class="card-title">Rooms</h5>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Description</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rooms-table">
+
+                            </tbody>
+                        </table>
+                        <form id="add-room-form">
+                            <div class="form-group">
+                                <label for="rname">Name</label>
+                                <input type="text" class="form-control" id="rname" placeholder="Name">
+                            </div>
+                            <!-- room type selector -->
+                            <div class="form-group">
+                                <label for="rtype">Type</label>
+                                <select class="form-control" id="rtype">
+                                    <option value="0">Chat</option>
+                                    <option value="1">Game</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add room</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="form-control">
-                <label for="name">Confirm password</label>
-                <input type="text" name="cpword" placeholder="Confirm password" id="cpword">
-            </div>
-            <div class="form-control">
-                <label for="admin">Has admin access</label>
-                <input type="checkbox" name="admin" id="admin">
-            </div>
-            <button class="btn" id="submit" onclick="useradd()">Add user</button>
         </div>
     </div>
     <script>
@@ -63,8 +128,7 @@
         document.getElementById("username").innerHTML = document.cookie.match(/username=([^;]+)/)[1];
 
         socket.emit("isAdmin", {
-            uname: document.cookie.match(/username=([^;]+)/)[1],
-            pword: document.cookie.match(/password=([^;]+)/)[1]
+            uname: document.cookie.match(/username=([^;]+)/)[1]
         });
 
         socket.on("invalidRoom", (data) => {
@@ -78,26 +142,146 @@
             alert(data);
         });
 
+        socket.emit("getRooms", {
+            uname: document.cookie.match(/username=([^;]+)/)[1]
+        });
+
+        //get rooms and add them to the table
+        socket.on("rooms", (data) => {
+            var rooms = data;
+            var table = document.getElementById("rooms-table");
+            table.innerHTML = "";
+            for (var i = 0; i < rooms.length; i++) {
+                // add table row for each room
+                var row = document.createElement("tr");
+                var id = document.createElement("th");
+                id.scope = "row";
+                id.innerHTML = i + 1;
+                row.appendChild(id);
+                var name = document.createElement("td");
+                name.innerHTML = rooms[i].name;
+                row.appendChild(name);
+                var type = document.createElement("td");
+                type.innerHTML = rooms[i].type;
+                row.appendChild(type);
+                var actions = document.createElement("td");
+                var deleteBtn = document.createElement("button");
+                deleteBtn.className = "btn btn-danger";
+                deleteBtn.innerHTML = "Delete";
+                deleteBtn.onclick = function() {
+                    var name = this.parentNode.parentNode.children[1].innerHTML;
+                    socket.emit("deleteRoom", {
+                        uname: document.cookie.match(/username=([^;]+)/)[1],
+                        name: name
+                    });
+                };
+                actions.appendChild(deleteBtn);
+                row.appendChild(actions);
+                table.appendChild(row);
+            }
+        });
+        // on form submit add room
+        document.getElementById("add-room-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            var name = document.getElementById("rname").value;
+            var type = document.getElementById("rtype").value;
+            socket.emit("addRoom", {
+                uname: document.cookie.match(/username=([^;]+)/)[1],
+                name: name,
+                type: type.toLowerCase()
+            });
+        });
+
+        socket.emit("getAllUsers", {
+            uname: document.cookie.match(/username=([^;]+)/)[1]
+        });
+
+        socket.on("allUsers", function(data) {
+            console.log("users");
+            document.getElementById("users-table").innerHTML = "";
+            document.getElementById("role").innerHTML = "";
+            // loop through all roles and add it as an option
+            for (let i = 0; i < data.roles.length; i++) {
+                console.log("roles", data.roles);
+                let role = document.createElement("div");
+                role.classList.add("form-check");
+                let input = document.createElement("input");
+                input.classList.add("form-check-input");
+                input.type = "checkbox";
+                input.value = data.roles[i].name;
+                input.id = data.roles[i].name;
+                let label = document.createElement("label");
+                label.classList.add("form-check-label");
+                label.htmlFor = data.roles[i].name;
+                label.innerHTML = data.roles[i].name;
+                role.appendChild(input);
+                role.appendChild(label);
+                document.getElementById("role").appendChild(role);
+            }
+            for (let i = 0; i < data.users.length; i++) {
+                let row = document.createElement("tr");
+                let id = document.createElement("th");
+                id.scope = "row";
+                id.innerHTML = i + 1;
+                let username = document.createElement("td");
+                username.innerHTML = data.users[i].name;
+                let role = document.createElement("td");
+                role.innerHTML = data.users[i].roles.toString().split(",").join(", ");
+                let actions = document.createElement("td");
+                let edit = document.createElement("button");
+                edit.className = "btn btn-primary";
+                edit.innerHTML = "Edit";
+                edit.onclick = function() {};
+                let deleteBtn = document.createElement("button");
+                deleteBtn.className = "btn btn-danger";
+                deleteBtn.innerHTML = "Delete";
+                deleteBtn.onclick = function() {
+                    socket.emit("deleteUser", {
+                        user: data.users[i].name,
+                        uname: document.cookie.match(/username=([^;]+)/)[1]
+                    });
+                };
+                //actions.appendChild(edit);
+                actions.appendChild(deleteBtn);
+                row.appendChild(id);
+                row.appendChild(username);
+                row.appendChild(role);
+                row.appendChild(actions);
+                document.getElementById("users-table").appendChild(row);
+            }
+        });
+
+        document.getElementById("add-user-form").addEventListener("submit", function(e) {
+            e.preventDefault();
+            console.log("name", document.getElementById("uname").value);
+            console.log("password", document.getElementById("password").value);
+            socket.emit("addUser", {
+                uname: document.cookie.match(/username=([^;]+)/)[1],
+                name: document.getElementById("uname").value,
+                pword: document.getElementById("password").value,
+                pword2: document.getElementById("cpassword").value,
+                roles: document.querySelectorAll("input[type=checkbox]:checked").forEach(function(checkbox) {
+                    return checkbox.value;
+                })
+            });
+        });
+
         function roomadd() {
             socket.emit("addRoom", {
                 uname: document.cookie.match(/username=([^;]+)/)[1],
+                sessionid: document.cookie.match(/sessionid=([^;]+)/)[1],
                 name: document.getElementById("name").value,
                 type: document.getElementById("type").value
             });
         }
 
-        function useradd() {
-            socket.emit("addUser", {
-                uname: document.cookie.match(/username=([^;]+)/)[1],
-                name: document.getElementById("uname").value,
-                pword: document.getElementById("pword").value,
-                pword2: document.getElementById("cpword").value,
-                isAdmin: document.getElementById("admin").checked
-            });
-        }
-
         document.getElementById('leave-btn').addEventListener('click', () => {
             window.location = '/';
+        });
+
+        socket.on("refresh", function(data) {
+            console.log("refresh");
+            window.location = '/logout';
         });
     </script>
 </body>

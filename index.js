@@ -12,6 +12,7 @@ const { createReadStream } = require('fs');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const flash = require('express-flash');
+const cookie = require('cookie');
 
 // postgresql setup
 const { Pool } = require('pg');
@@ -53,8 +54,19 @@ pool.query('SELECT * FROM rooms', (err, res) => {
 app.use(express.static(__dirname + '/public'));
 
 // parse client sent data
+app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(session({
+    secret: 'keyboardcatisverycute',
+
+    // cookie options
+    resave: false,
+    saveUninitialized: true,
+    cookie: { httpOnly: true, secure: false, maxAge: 60000 }
+}));
+
+app.use(flash());
 
 app.get("/room", function(req, res) {
     if (req.query.room) {
@@ -101,6 +113,8 @@ app.get("/", function(req, res) {
 app.post("/login", function(req, res) {
     const username = req.body.uname;
     const password = req.body.pword;
+    const sessionid = req.session.id;
+    console.log("sessionid = ", sessionid);
 
     if (!username || !password) {
         res.redirect("/?error=invalid-credentials");
@@ -114,9 +128,13 @@ app.post("/login", function(req, res) {
             if (result.rowCount > 0) {
                 if (bcrypt.compareSync(password, result.rows[0].password)) {
                     res.cookie('username', username);
-                    const hashedPass = await bcrypt.hash(password, 10);
-                    res.cookie('password', hashedPass);
-                    res.redirect('/');
+                    pool.query(`UPDATE users SET sessionid = '${sessionid}' WHERE name = '${username}'`, (err, result) => {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            res.redirect("/");
+                        }
+                    });
                 } else {
                     res.redirect('/?error=invalid-credentials');
                 }
@@ -132,6 +150,7 @@ app.post("/signup", async function(req, res) {
     const username = req.body.uname;
     const password = req.body.pword;
     const password2 = req.body.pword2;
+    const sessionid = req.session.id;
 
     if (!username || !password || !password2 || password !== password2 || password.length < 8) {
         res.redirect("/?error=invalid-signup");
@@ -149,12 +168,19 @@ app.post("/signup", async function(req, res) {
                         res.redirect("/?error=invalid-signup");
                     } else {
                         pool.query(
-                            `INSERT INTO users (name, password) VALUES ('${username}', '${hashedPassword}')`,
+                            `INSERT INTO users (name, password, roles) VALUES ('${username}', '${hashedPassword}', '{"@basic"}')`,
                             (err, result) => {
                                 if (err) {
                                     console.log(err);
                                 } else {
                                     res.cookie('username', username, { maxAge: 900000 });
+                                    pool.query(`UPDATE users SET sessionid = '${sessionid}' WHERE name = '${username}'`, (err, result) => {
+                                        if (err) {
+                                            console.log(err);
+                                        } else {
+                                            res.redirect("/");
+                                        }
+                                    });
                                     res.redirect("/");
                                 }
                             }
@@ -168,12 +194,18 @@ app.post("/signup", async function(req, res) {
 
 // routing for logout
 app.get('/logout', (req, res) => {
-    res.clearCookie('username');
-    res.clearCookie('password');
-    res.redirect('/');
+    req.session.destroy();
+    pool.query(`UPDATE users SET sessionid = NULL WHERE sessionid = '${req.session}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            res.clearCookie('username');
+            res.redirect('/');
+        }
+    });
 });
 
-app.get("/admin", function(req, res) {
+app.get("/dashboard", function(req, res) {
     const username = req.cookies.username;
 
     pool.query(`SELECT * FROM users WHERE name = '${username}'`, (err, result) => {
@@ -181,14 +213,13 @@ app.get("/admin", function(req, res) {
             console.log(err);
         } else {
             if (result.rowCount > 0) {
-                if (result.rows[0].admin) {
-                    console.log(result.rows[0]);
+                if (result.rows[0].roles.includes("@admin")) {
                     res.sendFile(__dirname + '/private/admin.html');
                 } else {
-                    res.redirect("/?error=not-admin");
+                    res.sendFile(__dirname + '/private/dashboard.html');
                 }
             } else {
-                res.redirect("/?error=not-admin");
+                res.sendStatus(404);
             }
         }
     });
@@ -197,6 +228,18 @@ app.get("/admin", function(req, res) {
 // socket io connections
 io.on('connection', function(socket) {
     console.log('a user connected');
+    const s_cookie = socket.handshake.headers.cookie;
+    if (s_cookie) {
+        const cookieParsed = cookie.parse(s_cookie);
+        console.log('cookieParsed:', cookieParsed);
+        console.log(cookieParsed["connect.sid"]);
+        if (cookieParsed["connect.sid"]) {
+            const sidParsed = cookieParser.signedCookie(cookieParsed["connect.sid"], 'keyboardcatisverycute');
+            console.log(sidParsed);
+            socket.sessionid = sidParsed;
+        }
+    }
+    console.log("socket id: ", socket.sessionid);
     users[socket.id] = socket;
 
     socket.on("getRooms", async function(data) {
@@ -205,16 +248,20 @@ io.on('connection', function(socket) {
                 console.log(err);
             } else {
                 socket.emit("rooms", result.rows);
+                if (socket.isAdmin) {
+                    console.log("admin");
+                    return;
+                }
                 socket.isLobby = true;
                 delete users[socket.id];
             }
         });
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
             if (err) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
-                    if (result.rows[0].admin === 't') {
+                    if (result.rows[0].roles.includes("@admin")) {
                         socket.isAdmin = true;
                     }
                 }
@@ -222,18 +269,125 @@ io.on('connection', function(socket) {
         });
     });
 
+    socket.on("getAllUsers", function(data) {
+        console.log("users");
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                console.log("here1");
+                console.log(socket.sessionid);
+                if (result.rowCount > 0) {
+                    console.log("here2");
+                    if (result.rows[0].roles.includes("@admin")) {
+                        console.log(result.rows[0].roles);
+                        console.log("works");
+                    }
+                    if (result.rows[0].roles.includes("@admin")) {
+                        pool.query('SELECT * FROM users', (err, result) => {
+                            if (err) {
+                                console.log(err);
+                            } else {
+                                console.log(result.rows);
+                                var users = result.rows;
+                                pool.query(`SELECT * FROM roles`, (err, res) => {
+                                    if (err) {
+                                        console.log(err);
+                                    } else {
+                                        var roles = res.rows;
+                                        socket.emit("allUsers", { users: users, roles: roles });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                } else {
+                    socket.emit("refresh");
+                }
+            }
+        });
+    });
+
     socket.on("isAdmin", async function(data) {
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
             if (err) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
-                    if (bcrypt.compareSync(data.pword, result.rows[0].password)) {
-                        if (result.rows[0].admin) {
-                            socket.isAdmin = true;
-                            socket.isLobby = false;
-                            console.log("is admin");
-                        }
+                    if (result.rows[0].roles.includes("@admin")) {
+                        socket.isAdmin = true;
+                        socket.isLobby = false;
+                        console.log("is admin");
+                    }
+                }
+            }
+        });
+    });
+
+    socket.on("deleteUser", function(data) {
+        console.log("deleting user: " + data.user);
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    if (result.rows[0].roles.includes("@admin")) {
+                        console.log("delete user");
+                        pool.query(`DELETE FROM users WHERE name = '${data.user}'`, (err, result) => {
+                            if (err) {
+                                console.log(err);
+                            } else {
+                                console.log("user deleted");
+                                pool.query('SELECT * FROM users', (err, result) => {
+                                    if (err) {
+                                        console.log(err);
+                                    } else {
+                                        console.log(result.rows);
+                                        var users = result.rows;
+                                        pool.query(`SELECT * FROM roles`, (err, res) => {
+                                            if (err) {
+                                                console.log(err);
+                                            } else {
+                                                var roles = res.rows;
+                                                socket.emit("allUsers", { users: users, roles: roles });
+                                                socket.emit("success", "User deleted.");
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            }
+        });
+    });
+
+    socket.on("deleteRoom", function(data) {
+        console.log("deleting room: " + data.name);
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                if (result.rowCount > 0) {
+                    if (result.rows[0].roles.includes("@admin")) {
+                        console.log("delete room");
+                        pool.query(`DELETE FROM rooms WHERE name = '${data.name}'`, (err, result) => {
+                            if (err) {
+                                console.log(err);
+                            } else {
+                                console.log("room deleted");
+                                pool.query('SELECT * FROM rooms', (err, result) => {
+                                    if (err) {
+                                        console.log(err);
+                                    } else {
+                                        console.log(result.rows);
+                                        var rooms = result.rows;
+                                        socket.emit("rooms", rooms);
+                                    }
+                                });
+                            }
+                        });
                     }
                 }
             }
@@ -244,15 +398,15 @@ io.on('connection', function(socket) {
         console.log("adding room");
         console.log(data.uname);
         var permitted = false;
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, (err, result) => {
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
             if (err) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
                     // if user is admin
                     console.log(result.rows);
-                    console.log(result.rows[0].admin);
-                    if (result.rows[0].admin) {
+                    console.log(result.rows[0].roles.includes("@admin"));
+                    if (result.rows[0].roles.includes("@admin")) {
                         console.log("admin");
                         if (!data) return;
                         console.log("data");
@@ -268,7 +422,7 @@ io.on('connection', function(socket) {
                                     if (result.rowCount > 0) {
                                         socket.emit("invalidRoom", "Room already exists.");
                                     } else {
-                                        const type = data.type === "Chat" ? "chat" : "game";
+                                        const type = data.type === "Chat" | "chat" ? "chat" : "game";
                                         pool.query(
                                             `INSERT INTO rooms (name, type) VALUES ('${data.name}', '${type}')`,
                                             (err, result) => {
@@ -294,6 +448,7 @@ io.on('connection', function(socket) {
                                                                 room.users = users_rooms[rooms.indexOf(room)];
                                                             });
                                                             console.log("rooms after", rooms);
+                                                            socket.emit("rooms", rooms);
                                                         }
                                                     });
                                                 }
@@ -318,19 +473,19 @@ io.on('connection', function(socket) {
     socket.on("addUser", async function(data) {
         console.log("adduser");
         var permitted = false;
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}'`, async(err, result) => {
+        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, async(err, result) => {
             if (err) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
                     // if user is admin
-                    if (result.rows[0].admin) {
+                    if (result.rows[0].roles.includes("@admin")) {
                         permitted = true;
                         if (!permitted) return;
                         console.log("isadmin");
                         if (!data) return;
                         console.log("data");
-                        if (data.uname === "") return;
+                        if (data.name === "") return;
                         console.log("uname");
                         if (data.pword === "") return;
                         console.log("pword");
@@ -349,16 +504,50 @@ io.on('connection', function(socket) {
                                     if (result.rowCount > 0) {
                                         socket.emit("invalidUser", "User already exists.");
                                     } else {
-                                        pool.query(
-                                            `INSERT INTO users (name, password, admin) VALUES ('${data.name}', '${hashedPassword}', '${data.isAdmin}')`,
-                                            (err, result) => {
-                                                if (err) {
-                                                    console.log(err);
-                                                } else {
-                                                    socket.emit("success", "User added.");
+                                        if (!data.roles) {
+                                            pool.query(
+                                                `INSERT INTO users (name, password, roles) VALUES ('${data.name}', '${hashedPassword}', '{"@basic"}')`,
+                                                (err, result) => {
+                                                    if (err) {
+                                                        console.log(err);
+                                                    } else {
+                                                        socket.emit("success", "User added.");
+                                                    }
                                                 }
+                                            );
+                                        } else {
+                                            var roles = data.roles.toString().split(",");
+                                            var rolesString = "{";
+                                            for (var i = 0; i < roles.length; i++) {
+                                                rolesString += `"${roles[i]}",`;
                                             }
-                                        );
+                                            pool.query(
+                                                `INSERT INTO users (name, password, roles) VALUES ('${data.name}', '${hashedPassword}', '${data.roles}')`,
+                                                (err, result) => {
+                                                    if (err) {
+                                                        console.log(err);
+                                                    } else {
+                                                        socket.emit("success", "User added.");
+                                                        pool.query('SELECT * FROM users', (err, result) => {
+                                                            if (err) {
+                                                                console.log(err);
+                                                            } else {
+                                                                console.log(result.rows);
+                                                                var users = result.rows;
+                                                                pool.query(`SELECT * FROM roles`, (err, res) => {
+                                                                    if (err) {
+                                                                        console.log(err);
+                                                                    } else {
+                                                                        var roles = res.rows;
+                                                                        socket.emit("allUsers", { users: users, roles: roles });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
+                                                    }
+                                                }
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -481,6 +670,7 @@ io.on('connection', function(socket) {
             delete users[socket.id];
             return;
         }
+
         io.to(user.current_room).emit(
             'message',
             messageFormatter("system", "System", `${user.username} has left the chat`)
