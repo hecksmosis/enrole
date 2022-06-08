@@ -27,6 +27,7 @@ socket.emit("getRooms", {
 
 // receive response and append it to the html
 socket.on("rooms", function(data) {
+    data = data.rooms;
     document.getElementById("room").innerHTML = "";
     for (var i = 0; i < data.length; i++) {
         document.getElementById("room").innerHTML += "<option value='" + data[i].name + "'>" + data[i].name + "</option>";

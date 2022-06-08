@@ -13,9 +13,19 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const flash = require('express-flash');
 const cookie = require('cookie');
+const crypto = require('crypto');
+
+// file imports
+const { classList, weapons, Weapon, armors, Armor, packs, Pack, Item } = require("./dnd/dnd.js");
+
+// prototypes setup
+Array.prototype.random = function() {
+    return this[Math.floor((Math.random() * this.length))];
+};
 
 // postgresql setup
 const { Pool } = require('pg');
+const { getMaxListeners } = require('process');
 const isProduction = process.env.NODE_ENV === 'production';
 console.log(isProduction);
 var pool;
@@ -35,10 +45,105 @@ if (isProduction) {
     });
 }
 
+// game arrays
+
+// define gameState class
+class GameState {
+    constructor(data) {
+        this.players = data.players;
+        this.room = data.room;
+        this.id = data.id;
+        this.map = new Array(100).fill(Array(100));
+        this.players.forEach((player) => {
+            if (player.isDM === false) {
+                player.x = 0;
+                player.y = 0;
+                this.map[player.y][player.x] = player.id;
+                player.class = '';
+                player.race = '';
+                player.background = '';
+                player.level = 1;
+                player.xp = 0;
+                player.alignment = '';
+                player.str = 0;
+                player.dex = 0;
+                player.con = 0;
+                player.int = 0;
+                player.wis = 0;
+                player.cha = 0;
+                player.savingThrows = [];
+                player.skills = [];
+                player.proficiencyBonus = 2;
+                player.initiative = 0;
+                player.speed = 0;
+                player.maxHitPoints = 0;
+                player.hitPoints = 0;
+                player.hitDice = 0;
+                player.armorClass = 0;
+                player.passivePerception = 0;
+                player.proficiencies = [];
+                player.languages = [];
+                player.equipment = [];
+                player.attacks = [];
+                player.spells = [];
+                player.features = [];
+                player.personalityTraits = '';
+                player.ideals = '';
+                player.bonds = '';
+                player.flaws = '';
+                player.saves = { successes: 0, failures: 0 };
+            }
+        });
+    }
+    setup(player, data) {
+        this.map[player.y][player.x] = player.id;
+        player.class = classList.includes(data.class) ? data.class : classList.random();
+        player.race = raceList.includes(data.race) ? data.race : raceList.random();
+        player.background = backgroundList.includes(data.background) ? data.background : backgroundList.random();
+        // TODO: Finish
+    }
+    addPlayer(player) {
+        this.map[player.y][player.x] = player.id;
+        player.class = '';
+        player.race = '';
+        player.background = '';
+        player.level = 1;
+        player.xp = 0;
+        player.alignment = '';
+        player.str = 0;
+        player.dex = 0;
+        player.con = 0;
+        player.int = 0;
+        player.wis = 0;
+        player.cha = 0;
+        player.savingThrows = [];
+        player.skills = [];
+        player.proficiencyBonus = 2;
+        player.initiative = 0;
+        player.speed = 0;
+        player.maxHitPoints = 0;
+        player.hitPoints = 0;
+        player.hitDice = 0;
+        player.armorClass = 0;
+        player.passivePerception = 0;
+        player.proficiencies = [];
+        player.languages = [];
+        player.equipment = [];
+        player.attacks = [];
+        player.spells = [];
+        player.features = [];
+        player.personalityTraits = '';
+        player.ideals = '';
+        player.bonds = '';
+        player.flaws = '';
+        player.saves = { successes: 0, failures: 0 };
+    }
+}
+
 // lists
 var users = [];
 var rooms = [];
-pool.query('SELECT * FROM rooms', (err, res) => {
+pool.query(`SELECT * FROM rooms ORDER BY id`, (err, res) => {
     if (err) {
         console.log(err);
     } else {
@@ -46,9 +151,11 @@ pool.query('SELECT * FROM rooms', (err, res) => {
         rooms.forEach((room) => {
             room.users = [];
         });
-        console.log(rooms);
+        // console.log(rooms);
     }
 });
+
+var games = [];
 
 // static files
 app.use(express.static(__dirname + '/public'));
@@ -79,9 +186,7 @@ app.get("/room", function(req, res) {
                     if (result.rows[0].type === "chat") {
                         res.sendFile(__dirname + '/private/room.html');
                     } else {
-                        res.send("WORK IN PROGRESS");
-
-                        //res.sendFile(__dirname + '/private/game.html');
+                        res.sendFile(__dirname + '/private/game.html');
                     }
                 } else {
                     res.sendStatus(404);
@@ -231,23 +336,33 @@ io.on('connection', function(socket) {
     const s_cookie = socket.handshake.headers.cookie;
     if (s_cookie) {
         const cookieParsed = cookie.parse(s_cookie);
-        console.log('cookieParsed:', cookieParsed);
-        console.log(cookieParsed["connect.sid"]);
+        // console.log('cookieParsed:', cookieParsed);
+        // console.log(cookieParsed["connect.sid"]);
         if (cookieParsed["connect.sid"]) {
             const sidParsed = cookieParser.signedCookie(cookieParsed["connect.sid"], 'keyboardcatisverycute');
-            console.log(sidParsed);
+            // console.log(sidParsed);
             socket.sessionid = sidParsed;
         }
     }
-    console.log("socket id: ", socket.sessionid);
+    // console.log("socket id: ", socket.sessionid);
     users[socket.id] = socket;
 
     socket.on("getRooms", async function(data) {
-        pool.query('SELECT * FROM rooms', (err, result) => {
+        pool.query('SELECT * FROM rooms ORDER BY id', (err, result) => {
             if (err) {
                 console.log(err);
             } else {
-                socket.emit("rooms", result.rows);
+                console.log("sending rooms");
+                var to_send_rooms = result.rows;
+                console.log(to_send_rooms);
+                pool.query("SELECT * FROM roles", (err, res) => {
+                    if (err) {
+                        console.log(err);
+                    } else {
+                        var to_send_roles = res.rows;
+                        socket.emit("rooms", { rooms: to_send_rooms, roles: to_send_roles });
+                    }
+                });
                 if (socket.isAdmin) {
                     console.log("admin");
                     return;
@@ -265,6 +380,31 @@ io.on('connection', function(socket) {
                         socket.isAdmin = true;
                     }
                 }
+            }
+        });
+    });
+
+    socket.on("getRoles", function(data) {
+        pool.query(`SELECT * FROM users WHERE name = '${data}'`, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                var to_send_roles = result.rows[0].roles;
+                console.log(to_send_roles);
+                pool.query("SELECT * FROM roles", (err, res) => {
+                    if (err) {
+                        console.log(err);
+                    } else {
+                        var data = [];
+                        for (var i = 0; i < res.rows.length; i++) {
+                            if (to_send_roles.includes(res.rows[i].name)) {
+                                data.push(res.rows[i]);
+                            }
+                        }
+                        console.log(data);
+                        socket.emit("rolelist", data);
+                    }
+                });
             }
         });
     });
@@ -338,13 +478,13 @@ io.on('connection', function(socket) {
                                 console.log(err);
                             } else {
                                 console.log("user deleted");
-                                pool.query('SELECT * FROM users', (err, result) => {
+                                pool.query(`SELECT * FROM users ORDER BY id`, (err, result) => {
                                     if (err) {
                                         console.log(err);
                                     } else {
                                         console.log(result.rows);
                                         var users = result.rows;
-                                        pool.query(`SELECT * FROM roles`, (err, res) => {
+                                        pool.query(`SELECT * FROM roles ORDER BY id`, (err, res) => {
                                             if (err) {
                                                 console.log(err);
                                             } else {
@@ -383,7 +523,7 @@ io.on('connection', function(socket) {
                                     } else {
                                         console.log(result.rows);
                                         var rooms = result.rows;
-                                        socket.emit("rooms", rooms);
+                                        socket.emit("rooms", { rooms: rooms, noroles: true });
                                     }
                                 });
                             }
@@ -424,7 +564,7 @@ io.on('connection', function(socket) {
                                     } else {
                                         const type = data.type === "Chat" | "chat" ? "chat" : "game";
                                         pool.query(
-                                            `INSERT INTO rooms (name, type) VALUES ('${data.name}', '${type}')`,
+                                            `INSERT INTO rooms (name, type, req_roles) VALUES ('${data.name}', '${type}', '{"${data.roles}"}')`,
                                             (err, result) => {
                                                 if (err) {
                                                     console.log(err);
@@ -432,7 +572,7 @@ io.on('connection', function(socket) {
                                                 } else {
                                                     socket.emit("success", "Room added.");
                                                     rooms[rooms.length - 1].users = [];
-                                                    pool.query('SELECT * FROM rooms', (err, result) => {
+                                                    pool.query(`SELECT * FROM rooms ORDER BY id`, (err, result) => {
                                                         if (err) {
                                                             console.log(err);
                                                         } else {
@@ -583,30 +723,51 @@ io.on('connection', function(socket) {
                 console.log(err);
             } else {
                 if (result.rowCount > 0) {
-                    let sel_room = rooms.filter((i_room) => {
-                        return i_room.name === room;
+                    console.log(result.rows[0].req_roles);
+                    var rooms_roles = result.rows[0].req_roles;
+                    pool.query(`SELECT * FROM users WHERE name = '${username}'`, (err, result) => {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            if (result.rowCount > 0) {
+                                var user_roles = result.rows[0].roles;
+                                var permitted = false;
+                                if (user_roles.includes(rooms_roles) || user_roles.includes("@admin") || user_roles.includes("@allrooms")) {
+                                    permitted = true;
+                                }
+                                if (permitted) {
+                                    let sel_room = rooms.filter((i_room) => {
+                                        return i_room.name === room;
+                                    });
+                                    sel_room = sel_room[0];
+                                    if (sel_room.users.indexOf(username) !== -1) {
+                                        console.log("is in room");
+                                        socket.emit("users", null);
+                                        return;
+                                    }
+                                    socket.current_room = sel_room.name;
+                                    socket.username = username;
+                                    socket.isLobby = false;
+                                    if (sel_room.type === 'chat') {
+                                        // console.log(room);
+                                        socket.join(room);
+                                        sel_room.users.push(socket.username);
+                                        console.log("User " + socket.username + " joined room " + room);
+                                        io.to(room).emit("users", sel_room.users);
+                                        socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
+                                    } else if (sel_room.type === 'game') {
+                                        // TODO: Game room shit
+                                        socket.emit('message', messageFormatter("system", "System", "Game room is not yet implemented."));
+                                    }
+                                } else {
+                                    socket.emit("noPerms");
+                                }
+                            } else {
+                                socket.emit("invalidUser", "Invalid user name.");
+                            }
+
+                        }
                     });
-                    sel_room = sel_room[0];
-                    if (sel_room.users.indexOf(username) !== -1) {
-                        console.log("is in room");
-                        socket.emit("users", null);
-                        return;
-                    }
-                    socket.current_room = sel_room.name;
-                    socket.username = username;
-                    socket.isLobby = false;
-                    if (sel_room.type === 'chat') {
-                        console.log(room);
-                        socket.join(room);
-                        sel_room.users.push(socket.username);
-                        console.log("User " + socket.username + " joined room " + room);
-                        io.to(room).emit("users", sel_room.users);
-                        socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
-                    } else
-                    if (sel_room.type === 'game') {
-                        // TODO: Game room shit
-                        socket.emit('message', messageFormatter("system", "System", "Game room is not yet implemented."));
-                    }
                 } else {
                     socket.emit("invalidRoom", "Invalid room name.");
                 }
@@ -630,14 +791,129 @@ io.on('connection', function(socket) {
             return i_room.name === room;
         });
         sel_room = sel_room[0];
-        console.log("users room: ", sel_room);
+        // console.log("users room: ", sel_room);
         socket.emit("users", sel_room.users);
     });
 
     // game socket.io functions
     //TODO: create game room + functional gameplay
+    socket.on("gameConnect", function({ name, room }) {
+        console.log("user " + name + " connected to game room: " + room);
+        var roomgames = games.filter((g_room) => {
+            return g_room.name === room;
+        });
+        socket.player = { name: name, isDM: false };
+        if (roomgames.length === 0) {
+            games.push(new GameState({ id: crypto.randomUUID(), name: room, players: [socket.player] }));
+        } else {
+            roomgames[0].addPlayer(socket.player);
+        }
 
+        socket.emit("createCharacter", {
+            alreadyDM: false
+        });
+    });
 
+    socket.on("characterData", function(data) {
+        if (!socket.player) return;
+        if (socket.player.isDM) return; // for now
+        if (data.toAdd.skillProficiencies) {
+            if (data.toAdd.skillProficiencies.length !== socket.player.skillProficiencyQuantity) {
+                socket.emit("notification", "You must select " + socket.player.skillProficiencyQuantity + " skill proficiencies.");
+                return;
+            }
+            data.toAdd.skillProficiencies.forEach(skill => {
+                socket.player.skills.push(skill);
+            });
+        }
+        for (let key of Object.keys(data.toAdd)) {
+            console.log(key);
+            console.log("to add: " + data.toAdd[key]);
+            console.log(socket.player[key]);
+            if (Array.isArray(socket.player[key])) {
+                const split_data = data.toAdd[key];
+                console.log("split data: " + split_data);
+                if (Array.isArray(split_data)) {
+                    console.log("korrekt");
+                    for (let item of split_data) {
+                        console.log("correkt 2");
+                        if (Array.isArray(item)) {
+                            console.log("item");
+                            for (let i of item) {
+                                console.log("i");
+                                if (weapons.find(w => w.name === i)) { // jshint ignore:line
+                                    socket.player[key] = socket.player[key].concat([new Weapon(i)]);
+                                    console.log("is wepon");
+                                } else if (armors.find(a => a.name === i)) { // jshint ignore:line
+                                    socket.player[key] = socket.player[key].concat([new Armor(i)]);
+                                    console.log("is armor");
+                                } else if (packs.find(p => p.name === i)) { // jshint ignore:line
+                                    socket.player[key] = socket.player[key].concat([new Pack(i)]);
+                                    console.log("is pak");
+                                } else {
+                                    socket.player[key] = socket.player[key].concat([new Item(i)]);
+                                    console.log("is musik");
+                                }
+                            }
+                        } else {
+                            console.log("not arrey");
+                            if (weapons.find(w => w.name === item)) {
+                                socket.player[key] = socket.player[key].concat([new Weapon(item)]);
+                            } else if (armors.find(a => a.name === item)) {
+                                socket.player[key] = socket.player[key].concat([new Armor(item)]);
+                            } else if (packs.find(p => p.name === item)) {
+                                socket.player[key] = socket.player[key].concat([new Pack(item)]);
+                            } else {
+                                socket.player[key] = socket.player[key].concat([new Item(item)]);
+                            }
+                        }
+                    }
+                } else {
+                    if (weapons.find(w => w.name === split_data)) {
+                        socket.player[key] = socket.player[key].concat([new Weapon(split_data)]);
+                    } else if (armors.find(a => a.name === split_data)) {
+                        socket.player[key] = socket.player[key].concat([new Armor(split_data)]);
+                    } else if (packs.find(p => p.name === split_data)) {
+                        socket.player[key] = socket.player[key].concat([new Pack(split_data)]);
+                    } else {
+                        socket.player[key] = socket.player[key].concat([new Item(split_data)]);
+                    }
+                }
+            } else {
+                socket.player[key] = data.toAdd[key];
+            }
+            console.log(socket.player[key]);
+        }
+        if (data.toAdd.class) {
+            var index = classList.findIndex((i) => {
+                return i.name === data.toAdd.class;
+            });
+            socket.player.hitDice = "1d" + classList[index].hitDice;
+            socket.player.hitDiceMax = "1d" + classList[index].hitDice;
+            socket.player.hitPoints = classList[index].hitPoints;
+            let toolProfs = classList[index].toolProficiencies.includes("None") ? [] : classList[index].toolProficiencies;
+            socket.player.proficiencies = classList[index].armorProficiencies.concat(classList[index].weaponProficiencies).concat(toolProfs);
+            socket.player.savingThrows = classList[index].savingThrowProficiencies;
+            socket.player.skillProficiencyQuantity = classList[index].skillProficiencyQuantity;
+            socket.emit("classPersonalization", classList.find(sel_class => sel_class.name === data.toAdd.class));
+        }
+        socket.emit("notification", "Character data saved.");
+    });
+
+    socket.on("getItem", function(item) {
+        if (!socket.player) return;
+        if (socket.player.isDM) return; // for now
+        console.log("get item: " + item);
+        if (weapons.find(w => w.name === item)) {
+            socket.emit("item", {...new Weapon(item) });
+        } else if (armors.find(a => a.name === item)) {
+            socket.emit("item", {...new Armor(item) });
+        } else if (packs.find(p => p.name === item)) {
+            socket.emit("item", {...new Pack(item) });
+        } else {
+            socket.emit("item", {...new Item(item) });
+        }
+    });
 
 
 
@@ -650,7 +926,7 @@ io.on('connection', function(socket) {
         }
         let user = users[socket.id];
         if (!user) return;
-        console.log("rooms: ", rooms);
+        // console.log("rooms: ", rooms);
         sel_room = rooms.filter((i_room) => {
             console.log(i_room.name, ", current room: ", socket.current_room);
             return i_room.name == user.current_room;
