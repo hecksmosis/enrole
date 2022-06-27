@@ -4,7 +4,7 @@
     "description": "A d&d implementation including rooms",
     "main": "index.js",
     "scripts": {
-        "test": "nodemon index.js --ignore *.json",
+        "dev": "nodemon index.js --ignore *.json",
         "start": "node index.js"
     },
     "author": "Pablo García Ruiz",
@@ -23,6 +23,7 @@
         "moment": "^2.29.3",
         "pg": "^8.7.3",
         "postgresql": "^0.0.1",
-        "socket.io": "^4.5.1"
+        "socket.io": "^4.5.1",
+        "uuid": "^8.3.2"
     }
 }

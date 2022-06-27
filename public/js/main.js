@@ -27,6 +27,7 @@ socket.emit("getRooms", {
 
 // receive response and append it to the html
 socket.on("rooms", function(data) {
+    data = data.rooms;
     document.getElementById("room").innerHTML = "";
     for (var i = 0; i < data.length; i++) {
         document.getElementById("room").innerHTML += "<option value='" + data[i].name + "'>" + data[i].name + "</option>";
@@ -40,4 +41,6 @@ document.getElementById("room").addEventListener("change", function() {
 
 socket.on("roomType", function(data) {
     document.getElementById("type").innerHTML = data;
+    document.getElementById("btype").innerHTML = "Join " + data;
+    console.log("got datas");
 });

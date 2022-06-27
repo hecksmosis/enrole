@@ -18,6 +18,11 @@ socket.emit("joinRoom", {
     username: document.cookie.match(/username=([^;]+)/)[1]
 });
 
+socket.on("noPerms", function() {
+    alert("You do not have permission to join this room.");
+    window.location = '/';
+});
+
 socket.emit("getUsers", urlParams.get("room"));
 
 socket.on('message', function(data) {

@@ -28,6 +28,18 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h5>Your roles</h5>
+                    </div>
+                    <div class="card-body" id="rolelist">
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card" style="margin-top: 20px;">
                     <div class="card-body">
                         <h5 class="card-title">Users</h5>
                         <table class="table table-striped">
@@ -90,7 +102,8 @@
                                 <tr>
                                     <th scope="col">#</th>
                                     <th scope="col">Name</th>
-                                    <th scope="col">Description</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Role required</th>
                                     <th scope="col">Actions</th>
                                 </tr>
                             </thead>
@@ -111,6 +124,13 @@
                                     <option value="1">Game</option>
                                 </select>
                             </div>
+                            <!-- role requirement selection radio -->
+                            <div class="form-group">
+                                <label for="rrole">Required role</label>
+                                <select name="rrole" id="rrole">
+
+                                </select>
+                            </div>
                             <button type="submit" class="btn btn-primary">Add room</button>
                         </form>
                     </div>
@@ -125,7 +145,8 @@
             window.location = '/';
         }
 
-        document.getElementById("username").innerHTML = document.cookie.match(/username=([^;]+)/)[1];
+        const username = document.cookie.match(/username=([^;]+)/)[1];
+        document.getElementById('username').innerHTML = username;
 
         socket.emit("isAdmin", {
             uname: document.cookie.match(/username=([^;]+)/)[1]
@@ -146,11 +167,97 @@
             uname: document.cookie.match(/username=([^;]+)/)[1]
         });
 
+        socket.emit("getRoles", username);
+
+        //populate rolelist on event
+        socket.on("rolelist", function(data) {
+            console.log(data);
+            var rolelist = document.getElementById('rolelist');
+            rolelist.innerHTML = '';
+            for (var i = 0; i < data.length; i++) {
+                // iterate through perms
+                var role = data[i];
+                var rolecard = document.createElement('div');
+                rolecard.className = 'card';
+                rolecard.style = 'margin: 10px;';
+                var rolecardheader = document.createElement('div');
+                rolecardheader.className = 'card-header';
+                rolecardheader.innerHTML = 'Role: ' + role.name;
+                var rolecardbody = document.createElement('div');
+                rolecardbody.className = 'card-body';
+                var rolecardbodyul = document.createElement('ul');
+                rolecardbodyul.className = 'list-group';
+                for (var j = 0; j < role.permissions.length; j++) {
+                    var rolecardbodyli = document.createElement('li');
+                    rolecardbodyli.className = 'list-group-item';
+                    if (role.permissions[j] === "admin") {
+                        rolecardbodyli.innerHTML = 'Administrator';
+                    } else if (role.permissions[j] === "mod") {
+                        rolecardbodyli.innerHTML = 'Moderator';
+                    } else {
+                        rolecardbodyli.innerHTML = 'Permission for: ' + role.permissions[j];
+                    }
+                    rolecardbodyul.appendChild(rolecardbodyli);
+                }
+                rolecardbody.appendChild(rolecardbodyul);
+                rolecard.appendChild(rolecardheader);
+                rolecard.appendChild(rolecardbody);
+                rolelist.appendChild(rolecard);
+            }
+        });
+
         //get rooms and add them to the table
         socket.on("rooms", (data) => {
-            var rooms = data;
+            var rooms = data.rooms;
+            if (data.noroles) {
+                var table = document.getElementById("rooms-table");
+                table.innerHTML = "";
+                for (var i = 0; i < rooms.length; i++) {
+                    // add table row for each room
+                    var row = document.createElement("tr");
+                    var id = document.createElement("th");
+                    id.scope = "row";
+                    id.innerHTML = i + 1;
+                    row.appendChild(id);
+                    var name = document.createElement("td");
+                    name.innerHTML = rooms[i].name;
+                    row.appendChild(name);
+                    var type = document.createElement("td");
+                    type.innerHTML = rooms[i].type;
+                    row.appendChild(type);
+                    // add role required
+                    var role = document.createElement("td");
+                    role.innerHTML = rooms[i].req_roles[0];
+                    row.appendChild(role);
+                    var actions = document.createElement("td");
+                    var deleteBtn = document.createElement("button");
+                    deleteBtn.className = "btn btn-danger";
+                    deleteBtn.innerHTML = "Delete";
+                    deleteBtn.onclick = function() {
+                        var name = this.parentNode.parentNode.children[1].innerHTML;
+                        socket.emit("deleteRoom", {
+                            uname: document.cookie.match(/username=([^;]+)/)[1],
+                            name: name
+                        });
+                    };
+                    actions.appendChild(deleteBtn);
+                    row.appendChild(actions);
+                    table.appendChild(row);
+                }
+                return;
+            }
+            var roles = data.roles;
             var table = document.getElementById("rooms-table");
             table.innerHTML = "";
+            // roles
+            var role_selector = document.getElementById("rrole");
+            role_selector.innerHTML = "";
+            for (var i = 0; i < roles.length; i++) {
+                var option = document.createElement("option");
+                option.value = roles[i].name;
+                option.innerHTML = roles[i].name;
+                role_selector.appendChild(option);
+            }
             for (var i = 0; i < rooms.length; i++) {
                 // add table row for each room
                 var row = document.createElement("tr");
@@ -164,6 +271,10 @@
                 var type = document.createElement("td");
                 type.innerHTML = rooms[i].type;
                 row.appendChild(type);
+                // add role required
+                var role = document.createElement("td");
+                role.innerHTML = rooms[i].req_roles[0];
+                row.appendChild(role);
                 var actions = document.createElement("td");
                 var deleteBtn = document.createElement("button");
                 deleteBtn.className = "btn btn-danger";
@@ -185,10 +296,12 @@
             e.preventDefault();
             var name = document.getElementById("rname").value;
             var type = document.getElementById("rtype").value;
+            var roles = document.getElementById("rrole").value;
             socket.emit("addRoom", {
                 uname: document.cookie.match(/username=([^;]+)/)[1],
                 name: name,
-                type: type.toLowerCase()
+                type: type.toLowerCase(),
+                roles: roles
             });
         });
 
