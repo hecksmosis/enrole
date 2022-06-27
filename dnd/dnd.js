@@ -320,16 +320,51 @@ const classList = [{
             },
             {
                 choice: ["20 bolts"],
+            },
+            {
+                choice: [new Armor("Shield")],
+            }, {
+                choice: ["Holy Symbol"],
             }
         ],
         packs: [new Pack("Priest's Pack"), new Pack("Explorer's Pack")],
-        equipmentChoice5: [new Armor("Shield")],
-        equipmentChoice6: ["Holy Symbol"],
+
         abilities: [{
             name: "Divine Domain",
             desc: "At 1st level, you adopt a divine domain that bestows special abilities on your cleric. Choose a domain from the cleric spell list. Your choice grants you features at 6th level and again at 18th level. You can select the same domain twice, but you can only select one domain at 20th level."
         }]
-    }
+    },
+    {
+        name: "Druid",
+        hitDice: 8,
+        hitPoints: 8,
+        armorProficiencies: Armor.byType("light").concat(Armor.byType("medium")).concat(Armor.byType("shield")),
+        weaponProficiencies: Weapon.byType("simple melee").concat(Weapon.byType("simple ranged")).concat(new Weapon("Dagger")).concat(new Weapon("Scimitar")).concat(new Weapon("Sickle")).concat(new Weapon("Club")).concat(new Weapon("Mace")).concat(new Weapon("Quarterstaff")).concat(new Weapon("Sling")).concat(new Weapon("Spear")).concat(new Weapon("Crossbow, hand")).concat(new Weapon("Crossbow, heavy")),
+        toolProficiencies: ["c: Herbalism kit"],
+        savingThrowProficiencies: ["Wisdom", "Intelligence"],
+        skillProficiencies: ["Arcana", "Animal Handling", "Insight", "Medicine", "Nature", "Perception", "Religion", "Survival"],
+        skillProficiencyQuantity: 2,
+        choices: [{
+                choice: Weapon.byType("simple melee").concat(Weapon.byType("simple ranged")).concat(Armor.byType("shield")),
+            },
+            {
+                choice: [new Armor("Leather")],
+            },
+            {
+                choice: Weapon.byType("simple melee"),
+            },
+            {
+                choice: [new Weapon("Dart")],
+            },
+
+        ],
+        packs: [new Pack("Explorer's Pack")],
+        abilities: [{
+            name: "Druidic",
+            desc: "You know Druidic, the secret language of druids. You can speak the language and use it to leave hidden messages. You and others who know this language automatically spot such a message. Others spot the message's presence with a successful DC 15 Wisdom (Perception) check but can't decipher it without magic.",
+        }]
+    },
+
 ];
 
 module.exports = {

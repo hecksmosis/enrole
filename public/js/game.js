@@ -1,14 +1,8 @@
 const socket = io();
 
-// grab room name from url 
-const queryString = window.location.search;
-const urlParams = new URLSearchParams(queryString);
-const room = urlParams.get('room');
-console.log(room);
-
 socket.emit("gameConnect", {
     name: document.cookie.match(/username=([^;]+)/)[1],
-    room: room
+    room: "mmorpg"
 });
 
 socket.on("gameStart", function(data) {
@@ -128,6 +122,31 @@ socket.on("classPersonalization", function(data) {
         }
     });
 
+    // allow pack selection with a radio selection for each pack
+    let pack_card = document.createElement("div");
+    pack_card.classList.add("card", "col-sm-4", "col-md-3", "col-lg-2");
+    pack_card.style = "margin: 1%; padding: 1%;";
+    let pack_card_title = document.createElement("h5");
+    pack_card_title.classList.add("card-title");
+    pack_card_title.innerHTML = "Choose a pack";
+    pack_card.appendChild(pack_card_title);
+    pack_card.id = "packs";
+    for (let pack of chosen_class.packs) {
+        let option = document.createElement("input");
+        option.type = "radio";
+        option.name = "pack";
+        option.value = pack.name;
+        let label = document.createElement("label");
+        label.htmlFor = pack.name;
+        label.appendChild(document.createTextNode(pack.name));
+        let div = document.createElement("div");
+        div.classList.add("radio");
+        div.appendChild(option);
+        div.appendChild(label);
+        pack_card.appendChild(div);
+    }
+    document.getElementById("class-choices").appendChild(pack_card);
+
     // create button to submit choices
     let s_button = document.createElement("button");
     s_button.classList.add("btn", "btn-primary");
@@ -140,6 +159,10 @@ socket.on("classPersonalization", function(data) {
         let profs = [];
         let ecount = 0;
         for (let card of document.getElementsByClassName("card")) {
+            if (card.id === "packs") {
+                let pack = document.getElementById("packs").querySelector("input:checked").value;
+                pack = pack;
+            }
             if (card.id === "proficiencies") {
                 for (let elem of card.getElementsByTagName("input")) {
                     if (elem.checked) {
@@ -185,6 +208,7 @@ socket.on("classPersonalization", function(data) {
             toAdd: {
                 skillProficiencies: profs,
                 equipment: choices,
+                pack
             }
         });
     });

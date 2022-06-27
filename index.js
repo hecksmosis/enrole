@@ -29,6 +29,7 @@ const { getMaxListeners } = require('process');
 const isProduction = process.env.NODE_ENV === 'production';
 console.log(isProduction);
 var pool;
+
 if (isProduction) {
     pool = new Pool({
         connectionString: process.env.DATABASE_URL,
@@ -43,6 +44,393 @@ if (isProduction) {
         password: '5bb7d6571aa254730bffd0c7b74f98027d1d12bbc7134e178bd1e147c6f013f0',
         ssl: { rejectUnauthorized: false },
     });
+}
+
+var games = [];
+
+// kake game 
+class Kake {
+    constructor(room) {
+        this.room = room;
+        this.players = [];
+        this.board = [];
+        let rows = 8;
+        let cols = 8;
+        for (let i = 0; i < rows; i++) {
+            this.board[i] = [];
+            for (let j = 0; j < cols; j++) {
+                this.board[i][j] = 0;
+            }
+        }
+        console.log("board");
+        this.board[0][0] = 14; // first digit is the color of the piece and the second digit is the value of the piece
+        this.board[1][0] = 12;
+        this.board[2][0] = 11;
+        this.board[0][2] = 13;
+        this.board[1][2] = 12;
+        this.board[2][2] = 11;
+        this.board[0][4] = 13;
+        this.board[1][4] = 12;
+        this.board[2][4] = 11;
+        this.board[0][6] = 13;
+        this.board[1][6] = 12;
+        this.board[2][6] = 11;
+        this.board[7][7] = 24;
+        this.board[6][7] = 22;
+        this.board[5][7] = 21;
+        this.board[7][5] = 23;
+        this.board[6][5] = 22;
+        this.board[5][5] = 21;
+        this.board[7][3] = 23;
+        this.board[6][3] = 22;
+        this.board[5][3] = 21;
+        this.board[7][1] = 23;
+        this.board[6][1] = 22;
+        this.board[5][1] = 21;
+        this.turn = 1;
+        console.log(this.board);
+        this.invertedBoard = this.showBoard();
+    }
+
+    showBoard(socket = null) {
+        if (!socket) {
+            // return inverted board
+            let board = [];
+            for (let i = 0; i < 8; i++) {
+                board[i] = [];
+                for (let j = 0; j < 8; j++) {
+                    board[i][j] = this.board[7 - i][7 - j];
+                }
+            }
+            return board;
+        } else if (socket.color === 2) {
+            console.log("no invert, color: " + socket.color);
+            console.log("original board: ", this.board);
+            return this.board;
+        } else if (socket.color === 1) {
+            console.log("invert, color: " + socket.color);
+            console.log("inverted board: ", this.invertedBoard);
+            return this.invertedBoard;
+        }
+    }
+
+    setBoard(socket, board) {
+        if (socket.color === 2) {
+            // invert board
+            let rows = 8;
+            let cols = 8;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    this.invertedBoard[i][j] = board[7 - i][7 - j];
+                    this.board[i][j] = board[i][j];
+                }
+            }
+        } else if (socket.color === 1) {
+            // invert board
+            let rows = 8;
+            let cols = 8;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    this.board[i][j] = board[7 - i][7 - j];
+                    this.invertedBoard[i][j] = board[i][j];
+                }
+            }
+        }
+    }
+
+    move(socket, { col, row, isChecker, color }) {
+        if (this.turn === socket.color) {
+            let board = this.showBoard(socket);
+            socket.jewels = [];
+            let hvalue = 0;
+            // invert board
+            let rows = 8;
+            let cols = 8;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    var selplace = board[i][j];
+                    var sseldigit = ('' + selplace)[0];
+                    let tdigit = parseInt(sseldigit);
+                    if (tdigit === socket.color) {
+                        // if it has the highest value of the pieces of that color the append it to the jewels array
+                        hvalue = board[i][j] % 10 > hvalue ? board[i][j] % 10 : hvalue;
+
+                    }
+                }
+            }
+            // invert board
+            rows = 8;
+            cols = 8;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    var sselplace = board[i][j];
+                    var ssseldigit = ('' + sselplace)[0];
+                    let tdigit = parseInt(ssseldigit);
+                    if (tdigit === socket.color) {
+                        if (board[i][j] % 10 === hvalue) {
+                            socket.jewels.push({
+                                row: i,
+                                col: j,
+                                color: socket.color,
+                                value: board[i][j] % 10
+                            });
+                        }
+                    }
+                }
+            }
+            console.log("jewels: ", socket.jewels);
+            if (socket.isMoving) {
+                let remaining = this.isValidMove(socket, board, { col, row, isChecker, color });
+                console.log("remaining: " + remaining);
+                if (remaining !== false) {
+                    console.log("move is valid");
+                    // check if there is already a same color checker in end pos and add up the values
+                    var place = board[row][col];
+                    var seldigit = ('' + place)[0];
+                    let digit = parseInt(seldigit);
+                    if (remaining !== 0) {
+                        if (socket.toMove.value === socket.jewels[0].value) {
+                            if (socket.jewels.length === 1) {
+                                return;
+                            }
+                        }
+                        console.log("division");
+                        if (digit === socket.color) {
+                            console.log("same color");
+                            board[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + remaining;
+                            board[row][col] += socket.toMove.value - remaining;
+                        } else {
+                            board[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + remaining;
+                            board[row][col] = socket.toMove.color * 10 + socket.toMove.value - remaining;
+                        }
+                        console.log(board[row][col]);
+                        console.log(board);
+                        socket.isMoving = false;
+                        socket.toMove = null;
+                        this.turn = this.turn === 1 ? 2 : 1;
+                        console.log("setting board");
+                        this.setBoard(socket, board);
+                        for (let sroom of io.sockets.adapter.rooms) {
+                            console.log(sroom);
+                            if (sroom[0] === this.room) {
+                                console.log(sroom);
+                                for (let ssocket of sroom[1]) {
+                                    console.log("socket: " + ssocket);
+                                    users[ssocket].emit("update", { board: games[this.room].showBoard(users[ssocket]) });
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    if (digit === socket.color) {
+                        console.log("same color");
+                        board[socket.toMove.row][socket.toMove.col] = 0;
+                        board[row][col] += socket.toMove.value;
+                    } else {
+                        board[socket.toMove.row][socket.toMove.col] = 0;
+                        board[row][col] = socket.toMove.color * 10 + socket.toMove.value;
+                    }
+                    console.log(board[row][col]);
+                    console.log(board);
+                    socket.isMoving = false;
+                    socket.toMove = null;
+                    this.turn = this.turn === 1 ? 2 : 1;
+                    this.setBoard(socket, board);
+                    for (let sroom of io.sockets.adapter.rooms) {
+                        console.log(sroom);
+                        if (sroom[0] === this.room) {
+                            console.log(sroom);
+                            for (let ssocket of sroom[1]) {
+                                console.log("socket: " + ssocket);
+                                users[ssocket].emit("update", { board: games[this.room].showBoard(users[ssocket]) });
+                            }
+                        }
+                    }
+                    return;
+                } else {
+                    socket.isMoving = false;
+                    socket.toMove = null;
+                    socket.emit("moves", { moves: [] });
+                    return;
+                }
+            }
+            // TODO: send valid moves to the client
+            var myVar = board[row][col];
+            var sdigit = ('' + myVar)[0];
+            console.log("checker: ", myVar);
+            console.log(sdigit, ", color: " + socket.color);
+            console.log("value: " + board[row][col] % 10);
+            let digit = parseInt(sdigit);
+            if (digit !== socket.color) return;
+            if (digit === 0) return;
+            console.log("move");
+            console.log("row: ", row, ", col: ", col);
+            socket.isMoving = true;
+            socket.toMove = { row, col, color: digit, value: board[row][col] % 10 };
+
+            let moves = [];
+
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    let space = board[i][j];
+                    console.log("space: ", space);
+                    let remaining = this.isValidMove(socket, board, { col: i, row: j });
+                    console.log("remaining: " + remaining);
+                    if (socket.toMove.value === socket.jewels[0].value) {
+                        // restricted movement as it is a jewel
+                        if (remaining !== false) {
+                            console.log("is jewel");
+                            if (remaining === 0) {
+                                moves.push({ row: i, col: j, rem: socket.toMove.value });
+                                console.log("is jewel valid move");
+                            }
+                        }
+                    } else {
+                        if (remaining !== false) {
+                            console.log("is a normal piece");
+                            moves.push({ row: i, col: j, rem: socket.toMove.value - remaining });
+                        }
+                    }
+                }
+            }
+
+            console.log("moves", moves);
+
+            socket.emit("moves", { moves: moves });
+
+            for (let sroom of io.sockets.adapter.rooms) {
+                console.log(sroom);
+                if (sroom[0] === this.room) {
+                    console.log(sroom);
+                    for (let ssocket of sroom[1]) {
+                        console.log("socket: " + ssocket);
+                        users[ssocket].emit("turn", { turn: this.turn, color: socket.color });
+                    }
+                }
+            }
+
+            console.log(socket.toMove);
+        } else return;
+    }
+
+    isValidMove(socket, _board, { col, row }) {
+        // if checker value is 1
+        console.log("value: ", socket.toMove.value);
+        if (socket.toMove.value === 1) {
+            console.log("moving 1");
+            // if end pos is 1 away from start pos
+            console.log("distance to end col: ", Math.abs(col - socket.toMove.col), " distance to end row: ", Math.abs(row - socket.toMove.row));
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 0;
+            }
+        } else if (socket.toMove.value === 2) {
+            console.log("moving 2");
+            // allow pieces to divide depending on the value
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 1;
+            }
+            // if end pos is 2 away from start pos in a straight line
+            if (Math.abs(col - socket.toMove.col) === 2 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 2) {
+                return 0;
+            }
+        } else if (socket.toMove.value === 3) {
+            console.log("moving 3");
+            // allow pieces to divide depending on the value
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 2;
+            }
+            if (Math.abs(col - socket.toMove.col) === 2 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 2) {
+                return 1;
+            }
+            // if end pos is 3 away from start pos in a straight line
+            if (Math.abs(col - socket.toMove.col) === 3 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 3) {
+                return 0;
+            }
+        } else if (socket.toMove.value === 4) {
+            console.log("moving 4");
+            // allow pieces to divide depending on the value
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 3;
+            }
+            if (Math.abs(col - socket.toMove.col) === 2 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 2) {
+                return 2;
+            }
+            if (Math.abs(col - socket.toMove.col) === 3 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 3) {
+                return 1;
+            }
+            // if end pos is 4 away from start pos in a straight line
+            if (Math.abs(col - socket.toMove.col) === 4 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 4) {
+                return 0;
+            }
+        } else if (socket.toMove.value === 5) {
+            console.log("moving 5");
+            // allow pieces to divide depending on the value
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 4;
+            }
+            if (Math.abs(col - socket.toMove.col) === 2 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 2) {
+                return 3;
+            }
+            if (Math.abs(col - socket.toMove.col) === 3 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 3) {
+                return 2;
+            }
+            if (Math.abs(col - socket.toMove.col) === 4 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 4) {
+                return 1;
+            }
+            // if end pos is 5 away from start pos in a straight line
+            if (Math.abs(col - socket.toMove.col) === 5 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 5) {
+                return 0;
+            }
+        } else if (socket.toMove.value === 6) {
+            console.log("moving 6");
+            // allow pieces to divide depending on the value
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 5;
+            }
+            if (Math.abs(col - socket.toMove.col) === 2 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 2) {
+                return 4;
+            }
+            if (Math.abs(col - socket.toMove.col) === 3 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 3) {
+                return 3;
+            }
+            if (Math.abs(col - socket.toMove.col) === 4 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 4) {
+                return 2;
+            }
+            if (Math.abs(col - socket.toMove.col) === 5 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 5) {
+                return 1;
+            }
+            // if end pos is 6 away from start pos in a straight line
+            if (Math.abs(col - socket.toMove.col) === 6 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 6) {
+                return 0;
+            }
+        } else if (socket.toMove.value === 7) {
+            console.log("moving 7");
+            // allow pieces to divide depending on the value
+            if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
+                return 6;
+            }
+            if (Math.abs(col - socket.toMove.col) === 2 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 2) {
+                return 5;
+            }
+            if (Math.abs(col - socket.toMove.col) === 3 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 3) {
+                return 4;
+            }
+            if (Math.abs(col - socket.toMove.col) === 4 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 4) {
+                return 3;
+            }
+            if (Math.abs(col - socket.toMove.col) === 5 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 5) {
+                return 2;
+            }
+            if (Math.abs(col - socket.toMove.col) === 6 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 6) {
+                return 1;
+            }
+            // if end pos is 7 away from start pos in a straight line
+            if (Math.abs(col - socket.toMove.col) === 7 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 7) {
+                return 0;
+            }
+        }
+        return false;
+    }
 }
 
 // game arrays
@@ -185,8 +573,8 @@ app.get("/room", function(req, res) {
                 if (result.rowCount > 0) {
                     if (result.rows[0].type === "chat") {
                         res.sendFile(__dirname + '/private/room.html');
-                    } else {
-                        res.sendFile(__dirname + '/private/game.html');
+                    } else if (result.rows[0].type === "game") {
+                        res.sendFile(__dirname + '/private/kake.html');
                     }
                 } else {
                     res.sendStatus(404);
@@ -196,6 +584,10 @@ app.get("/room", function(req, res) {
     } else {
         res.sendStatus(404);
     }
+});
+
+app.get("/rpg", function(req, res) {
+    res.sendFile(__dirname + '/private/game.html');
 });
 
 app.get("/", function(req, res) {
@@ -732,9 +1124,10 @@ io.on('connection', function(socket) {
                             if (result.rowCount > 0) {
                                 var user_roles = result.rows[0].roles;
                                 var permitted = false;
-                                if (user_roles.includes(rooms_roles) || user_roles.includes("@admin") || user_roles.includes("@allrooms")) {
+                                if (user_roles.includes(rooms_roles[0]) || user_roles.includes("@admin") || user_roles.includes("@allrooms")) {
                                     permitted = true;
                                 }
+                                console.log("yes");
                                 if (permitted) {
                                     let sel_room = rooms.filter((i_room) => {
                                         return i_room.name === room;
@@ -756,8 +1149,35 @@ io.on('connection', function(socket) {
                                         io.to(room).emit("users", sel_room.users);
                                         socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
                                     } else if (sel_room.type === 'game') {
-                                        // TODO: Game room shit
-                                        socket.emit('message', messageFormatter("system", "System", "Game room is not yet implemented."));
+                                        console.log("game room");
+                                        console.log("users: " + sel_room.users);
+                                        if (sel_room.users.length > 1) {
+                                            socket.emit("redir");
+                                            return;
+                                        }
+                                        socket.join(room);
+                                        sel_room.users.push(socket.username);
+                                        console.log("User " + socket.username + " joined room " + room);
+                                        io.to(room).emit("users", sel_room.users);
+                                        if (sel_room.users.length === 2) {
+                                            socket.color = 2;
+                                            games[room] = new Kake(room);
+                                            console.log("second");
+                                            console.log(users);
+                                            for (let sroom of io.sockets.adapter.rooms) {
+                                                console.log(sroom);
+                                                if (sroom[0] === room) {
+                                                    console.log(sroom);
+                                                    for (let ssocket of sroom[1]) {
+                                                        console.log("socket: " + ssocket);
+                                                        users[ssocket].emit("ok", { data: games[room].showBoard(users[ssocket]), color: users[ssocket.color] });
+                                                    }
+                                                }
+                                            }
+                                        } else if (sel_room.users.length === 1) {
+                                            console.log("first");
+                                            socket.color = 1;
+                                        }
                                     }
                                 } else {
                                     socket.emit("noPerms");
@@ -765,7 +1185,6 @@ io.on('connection', function(socket) {
                             } else {
                                 socket.emit("invalidUser", "Invalid user name.");
                             }
-
                         }
                     });
                 } else {
@@ -795,10 +1214,10 @@ io.on('connection', function(socket) {
         socket.emit("users", sel_room.users);
     });
 
-    // game socket.io functions
-    //TODO: create game room + functional gameplay
+    // mmorpg socket.io functions
+    //TODO: create functional gameplay
     socket.on("gameConnect", function({ name, room }) {
-        console.log("user " + name + " connected to game room: " + room);
+        console.log("user " + name + " connected to mmorpg");
         var roomgames = games.filter((g_room) => {
             return g_room.name === room;
         });
@@ -826,6 +1245,12 @@ io.on('connection', function(socket) {
                 socket.player.skills.push(skill);
             });
         }
+        if (data.toAdd.pack) {
+            for (let item of packs.find(pack => pack.name === data.toAdd.pack).items) {
+                socket.player.inventory.push(new Item(item));
+            }
+        }
+
         for (let key of Object.keys(data.toAdd)) {
             console.log(key);
             console.log("to add: " + data.toAdd[key]);
@@ -897,6 +1322,9 @@ io.on('connection', function(socket) {
             socket.player.skillProficiencyQuantity = classList[index].skillProficiencyQuantity;
             socket.emit("classPersonalization", classList.find(sel_class => sel_class.name === data.toAdd.class));
         }
+        if (data.toAdd.equipment) {
+            socket.emit("showUI", { player: socket.player });
+        }
         socket.emit("notification", "Character data saved.");
     });
 
@@ -916,10 +1344,22 @@ io.on('connection', function(socket) {
     });
 
 
+    // kake socket.io functions 
 
+    socket.on("getupdate", function() {
+        console.log(games);
+        board = games[socket.current_room].board;
+
+        io.emit("msg", "room: " + socket.current_room);
+        console.log(socket.color);
+        socket.emit("update", { board: games[socket.current_room].showBoard(socket) });
+    });
+
+    socket.on("move", function(data) { if (games[socket.current_room]) games[socket.current_room].move(socket, data); });
 
     // on disconnect
     socket.on('disconnect', function() {
+        socket.color = undefined;
         if (socket.isLobby) {
             delete users[socket.id];
             return;

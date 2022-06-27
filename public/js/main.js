@@ -41,4 +41,6 @@ document.getElementById("room").addEventListener("change", function() {
 
 socket.on("roomType", function(data) {
     document.getElementById("type").innerHTML = data;
+    document.getElementById("btype").innerHTML = "Join " + data;
+    console.log("got datas");
 });
