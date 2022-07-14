@@ -9,10 +9,25 @@ const W = 400,
 var offsetX;
 var offsetY;
 
+const pageAccessedByReload = (
+    (window.performance.navigation && window.performance.navigation.type === 1) ||
+    window.performance
+    .getEntriesByType('navigation')
+    .map((nav) => nav.type)
+    .includes('reload')
+);
+
+if (!document.cookie.match(/username=([^;]+)/)) {
+    window.location = '/';
+}
+
+document.getElementById("username").innerHTML = document.cookie.match(/username=([^;]+)/)[1];
+
 // emit joinRoom
 socket.emit("joinRoom", {
     room: urlParams.get("room"),
-    username: document.cookie.match(/username=([^;]+)/)[1]
+    username: document.cookie.match(/username=([^;]+)/)[1],
+    isRefresh: pageAccessedByReload
 });
 
 socket.on("users", function(users) {
@@ -26,14 +41,22 @@ socket.on("noPerms", function() {
     window.location = '/';
 });
 
-socket.on("redir", function() {
+socket.on("redir", function(data) {
+    if (data) {
+        window.location = data;
+    }
     window.location = '/';
 });
 
 socket.on("test", function(data) {
     console.log("test");
     const waitText = document.getElementById("wait");
-    waitText.innerText = `A player has connected! The game has started. You are ${data.color}. Logged in as ${data.username}`;
+    const turn = data.turn === 1 ? "red" : "blue";
+    const turnItem = document.getElementById("turn");
+    turnItem.innerText = turn;
+    waitText.innerText = `A player has connected! The game has started.`;
+    const login = document.getElementById("username");
+    login.innerText = data.username;
 });
 
 socket.on("msg", data => console.log(data));
@@ -52,12 +75,21 @@ socket.on("refresh", function(data) {
 socket.on("ok", function({ data, color }) {
     // start game
     globalThis.COLOR = color;
+    const container = document.getElementById("canvas-container");
+    container.style.display = "flex";
+    const hol = document.getElementById("hide-on-lobby");
+    hol.style.display = "flex";
     var canvas = document.getElementById("gc");
     console.log("canvas: " + canvas);
     ctx = canvas.getContext("2d");
     console.log("game object created");
     offsetX = canvas.offsetLeft;
     offsetY = canvas.offsetTop;
+
+    // set color in html display element
+    const e_color = document.getElementById("color");
+    e_color.innerText = globalThis.COLOR === 1 ? "red" : "blue";
+
     // wait for click and detect checker with handleClick
     canvas.addEventListener("click", handleClick);
     // draw board
@@ -85,7 +117,9 @@ socket.on("clear", function() {
 
 socket.on("turn", function(data) {
     console.log("turn");
-    document.getElementById("wait").innerText = `To move: ${data.turn === 1 ? "red" : "blue"}, you are: ${data.color === 1 ? "red" : "blue"}`;
+    const turn = data.turn === 1 ? "red" : "blue";
+    const turnItem = document.getElementById("turn");
+    turnItem.innerText = turn;
 });
 
 function draw(ctx) {
@@ -202,15 +236,52 @@ socket.on("moves", function(data) {
         let col = space.col;
         let remain = space.rem;
         // draw a circle on top of the end square
-        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
         ctx.beginPath();
-        ctx.arc(row * (W / 8) + (W / 16), col * (H / 8) + (H / 16), R, 0, 2 * Math.PI);
+        ctx.arc(col * (W / 8) + (W / 16), row * (H / 8) + (H / 16), R, 0, 2 * Math.PI);
         ctx.fill();
         // draw a number on top of the circle
         ctx.fillStyle = "white";
         ctx.font = "20px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(remain, row * (W / 8) + (W / 16), col * (H / 8) + (H / 16));
+        ctx.fillText(remain, col * (W / 8) + (W / 16), row * (H / 8) + (H / 16));
     }
+});
+
+socket.on("win", function({ losecolor, color, aa }) {
+    draw(ctx);
+    console.log("win/lose");
+    if (aa) {
+        console.log("test emit");
+    }
+    const tecst = document.getElementById("wait");
+    // display win on the canvas
+    ctx.fillStyle = "grey";
+    ctx.font = "50px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    globalThis.losecolor = losecolor;
+    if (losecolor === color) {
+        tecst.innerText = "You lost!";
+        ctx.fillText("You lost!", W / 2, H / 2);
+    } else {
+        tecst.innerText = "You won!";
+        ctx.fillText("You won!", W / 2, H / 2);
+    }
+    // send event to reset the canvas and prompt for play again
+});
+
+socket.on("isWon", function() {
+    console.log("checkquin hif gwhon");
+    socket.emit("isWon");
+});
+
+
+// Confirm room leave
+document.getElementById('leave-btn').addEventListener('click', () => {
+    const leaveRoom = confirm('Are you sure you want to leave the game?');
+    if (leaveRoom) {
+        window.location = '/';
+    } else {}
 });
