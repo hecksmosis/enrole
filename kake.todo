@@ -1,0 +1,6 @@
+TODO: win game (no pieces and all are jewels) FIX
+TODO: better ui
+TODO: make moves that make you lose illegal
+TODO: Fix win mechanism
+TODO: Implement win/loss system for each user (and output data in dashboard)
+TODO: if window is refreshed, ccount the game as a loss for the person who refreshed
