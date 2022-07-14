@@ -9,6 +9,12 @@ if (urlParams.length !== 0) {
     if (urlParams.get("error") === "not-admin") {
         alert("Your account does not have administrative privileges. Please log in with another account.");
     }
+    if (urlParams.get("error") === "room-full") {
+        alert("The room is full. Please try again later or join another room.");
+    }
+    if (urlParams.get("error") === "invalid-sid") {
+        alert("Invalid session ID. Please try again.");
+    }
 }
 
 

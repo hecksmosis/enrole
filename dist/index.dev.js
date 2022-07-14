@@ -68,6 +68,9 @@ var _require4 = require('pg'),
 var _require5 = require('process'),
     getMaxListeners = _require5.getMaxListeners;
 
+var _require6 = require('console'),
+    Console = _require6.Console;
+
 var isProduction = process.env.NODE_ENV === 'production';
 console.log(isProduction);
 var pool;
@@ -141,7 +144,6 @@ function () {
     this.board[6][1] = 22;
     this.board[5][1] = 21;
     this.turn = 1;
-    console.log(this.board);
     this.invertedBoard = this.showBoard();
   }
 
@@ -164,12 +166,8 @@ function () {
 
         return _board2;
       } else if (socket.color === 2) {
-        console.log("no invert, color: " + socket.color);
-        console.log("original board: ", this.board);
         return this.board;
       } else if (socket.color === 1) {
-        console.log("invert, color: " + socket.color);
-        console.log("inverted board: ", this.invertedBoard);
         return this.invertedBoard;
       }
     }
@@ -211,49 +209,15 @@ function () {
       if (this.turn === socket.color) {
         var _board3 = this.showBoard(socket);
 
-        socket.jewels = [];
-        var hvalue = 0; // invert board
+        socket.jewels = []; // TODO: Moves that make you lose should be invalid
+        // get your own jewels
 
-        var _rows3 = 8;
-        var _cols3 = 8;
+        this.getJewels(socket, _board3); // get other player's jewels
 
-        for (var i = 0; i < _rows3; i++) {
-          for (var j = 0; j < _cols3; j++) {
-            var selplace = _board3[i][j];
-            var sseldigit = ('' + selplace)[0];
-            var tdigit = parseInt(sseldigit);
-
-            if (tdigit === socket.color) {
-              // if it has the highest value of the pieces of that color the append it to the jewels array
-              hvalue = _board3[i][j] % 10 > hvalue ? _board3[i][j] % 10 : hvalue;
-            }
-          }
-        } // invert board
-
-
-        _rows3 = 8;
-        _cols3 = 8;
-
-        for (var _i2 = 0; _i2 < _rows3; _i2++) {
-          for (var _j2 = 0; _j2 < _cols3; _j2++) {
-            var sselplace = _board3[_i2][_j2];
-            var ssseldigit = ('' + sselplace)[0];
-
-            var _tdigit = parseInt(ssseldigit);
-
-            if (_tdigit === socket.color) {
-              if (_board3[_i2][_j2] % 10 === hvalue) {
-                socket.jewels.push({
-                  row: _i2,
-                  col: _j2,
-                  color: socket.color,
-                  value: _board3[_i2][_j2] % 10
-                });
-              }
-            }
-          }
-        }
-
+        var otherPlayer = this.getOtherPlayer(socket);
+        otherPlayer.jewels = [];
+        var otherPlayerBoard = this.showBoard(otherPlayer);
+        this.getJewels(otherPlayer, otherPlayerBoard);
         console.log("jewels: ", socket.jewels);
 
         if (socket.isMoving) {
@@ -284,8 +248,144 @@ function () {
 
               if (_digit === socket.color) {
                 console.log("same color");
+                var canmove = 7 - _board3[row][col] % 10;
                 _board3[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + remaining;
                 _board3[row][col] += socket.toMove.value - remaining;
+                console.log("end pos: " + _board3[row][col]);
+
+                if (canmove === 0) {
+                  _board3[row][col] = socket.color * 10 + 7;
+                  console.log("can't move");
+                  this.setBoard(socket, _board3);
+                  socket.isMoving = false;
+                  socket.toMove = null;
+                  socket.emit("moves", {
+                    moves: []
+                  });
+                  var _iteratorNormalCompletion = true;
+                  var _didIteratorError = false;
+                  var _iteratorError = undefined;
+
+                  try {
+                    for (var _iterator = io.sockets.adapter.rooms[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                      var sroom = _step.value;
+
+                      if (sroom[0] === this.room) {
+                        var _iteratorNormalCompletion2 = true;
+                        var _didIteratorError2 = false;
+                        var _iteratorError2 = undefined;
+
+                        try {
+                          for (var _iterator2 = sroom[1][Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                            var ssocket = _step2.value;
+                            console.log("socket: " + ssocket);
+                            users[ssocket].emit("turn", {
+                              turn: this.turn,
+                              color: users[ssocket].color
+                            });
+                          }
+                        } catch (err) {
+                          _didIteratorError2 = true;
+                          _iteratorError2 = err;
+                        } finally {
+                          try {
+                            if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
+                              _iterator2["return"]();
+                            }
+                          } finally {
+                            if (_didIteratorError2) {
+                              throw _iteratorError2;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  } catch (err) {
+                    _didIteratorError = true;
+                    _iteratorError = err;
+                  } finally {
+                    try {
+                      if (!_iteratorNormalCompletion && _iterator["return"] != null) {
+                        _iterator["return"]();
+                      }
+                    } finally {
+                      if (_didIteratorError) {
+                        throw _iteratorError;
+                      }
+                    }
+                  }
+
+                  return;
+                }
+
+                if (_board3[row][col] % 10 > 7) {
+                  console.log("overflow");
+                  _board3[row][col] = socket.color * 10 + 7;
+                  _board3[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + socket.toMove.value - canmove;
+                  socket.isMoving = false;
+                  socket.toMove = null;
+                  this.turn = this.turn === 1 ? 2 : 1;
+                  console.log("setting board");
+                  this.setBoard(socket, _board3);
+                  socket.emit("moves", {
+                    moves: []
+                  });
+                  var _iteratorNormalCompletion3 = true;
+                  var _didIteratorError3 = false;
+                  var _iteratorError3 = undefined;
+
+                  try {
+                    for (var _iterator3 = io.sockets.adapter.rooms[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                      var _sroom = _step3.value;
+
+                      if (_sroom[0] === this.room) {
+                        var _iteratorNormalCompletion4 = true;
+                        var _didIteratorError4 = false;
+                        var _iteratorError4 = undefined;
+
+                        try {
+                          for (var _iterator4 = _sroom[1][Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                            var _ssocket = _step4.value;
+                            console.log("socket: " + _ssocket);
+
+                            users[_ssocket].emit("turn", {
+                              turn: this.turn,
+                              color: users[_ssocket].color
+                            });
+                          }
+                        } catch (err) {
+                          _didIteratorError4 = true;
+                          _iteratorError4 = err;
+                        } finally {
+                          try {
+                            if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
+                              _iterator4["return"]();
+                            }
+                          } finally {
+                            if (_didIteratorError4) {
+                              throw _iteratorError4;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  } catch (err) {
+                    _didIteratorError3 = true;
+                    _iteratorError3 = err;
+                  } finally {
+                    try {
+                      if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
+                        _iterator3["return"]();
+                      }
+                    } finally {
+                      if (_didIteratorError3) {
+                        throw _iteratorError3;
+                      }
+                    }
+                  }
+
+                  return;
+                }
               } else {
                 _board3[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + remaining;
                 _board3[row][col] = socket.toMove.color * 10 + socket.toMove.value - remaining;
@@ -298,56 +398,55 @@ function () {
               this.turn = this.turn === 1 ? 2 : 1;
               console.log("setting board");
               this.setBoard(socket, _board3);
-              var _iteratorNormalCompletion = true;
-              var _didIteratorError = false;
-              var _iteratorError = undefined;
+              var _iteratorNormalCompletion5 = true;
+              var _didIteratorError5 = false;
+              var _iteratorError5 = undefined;
 
               try {
-                for (var _iterator = io.sockets.adapter.rooms[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                  var sroom = _step.value;
-                  console.log(sroom);
+                for (var _iterator5 = io.sockets.adapter.rooms[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                  var _sroom2 = _step5.value;
 
-                  if (sroom[0] === this.room) {
-                    console.log(sroom);
-                    var _iteratorNormalCompletion2 = true;
-                    var _didIteratorError2 = false;
-                    var _iteratorError2 = undefined;
+                  if (_sroom2[0] === this.room) {
+                    var _iteratorNormalCompletion6 = true;
+                    var _didIteratorError6 = false;
+                    var _iteratorError6 = undefined;
 
                     try {
-                      for (var _iterator2 = sroom[1][Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                        var ssocket = _step2.value;
-                        console.log("socket: " + ssocket);
-                        users[ssocket].emit("update", {
-                          board: games[this.room].showBoard(users[ssocket])
+                      for (var _iterator6 = _sroom2[1][Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+                        var _ssocket2 = _step6.value;
+                        console.log("socket: " + _ssocket2);
+
+                        users[_ssocket2].emit("update", {
+                          board: games[this.room].showBoard(users[_ssocket2])
                         });
                       }
                     } catch (err) {
-                      _didIteratorError2 = true;
-                      _iteratorError2 = err;
+                      _didIteratorError6 = true;
+                      _iteratorError6 = err;
                     } finally {
                       try {
-                        if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
-                          _iterator2["return"]();
+                        if (!_iteratorNormalCompletion6 && _iterator6["return"] != null) {
+                          _iterator6["return"]();
                         }
                       } finally {
-                        if (_didIteratorError2) {
-                          throw _iteratorError2;
+                        if (_didIteratorError6) {
+                          throw _iteratorError6;
                         }
                       }
                     }
                   }
                 }
               } catch (err) {
-                _didIteratorError = true;
-                _iteratorError = err;
+                _didIteratorError5 = true;
+                _iteratorError5 = err;
               } finally {
                 try {
-                  if (!_iteratorNormalCompletion && _iterator["return"] != null) {
-                    _iterator["return"]();
+                  if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
+                    _iterator5["return"]();
                   }
                 } finally {
-                  if (_didIteratorError) {
-                    throw _iteratorError;
+                  if (_didIteratorError5) {
+                    throw _iteratorError5;
                   }
                 }
               }
@@ -365,62 +464,197 @@ function () {
             }
 
             console.log(_board3[row][col]);
-            console.log(_board3);
+            console.log(_board3); // update board
+
+            this.setBoard(socket, _board3);
+            console.log("object board: " + this.board.toString());
+            console.log("emitting is won");
+            io.to(this.room).emit("isWon");
+            /*// win
+            let rccounter = 0;
+            let bccounter = 0;
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    place = this.board[i][j];
+                    seldigit = ('' + place)[0];
+                    digit = parseInt(seldigit);
+                      if (digit === 1) {
+                        rccounter++;
+                        console.log("red counter: " + rccounter);
+                    } else if (digit === 2) {
+                        bccounter++;
+                        console.log("blue counter: " + bccounter);
+                    }
+                  }
+            }
+              console.log("checker counters");
+            console.log("red" + rccounter);
+            console.log("blue" + bccounter);
+              /*
+            if (rccounter === 0) {
+                // red loses
+                for (let sroom of io.sockets.adapter.rooms) {
+                    if (sroom[0] === this.room) {
+                        for (let ssocket of sroom[1]) {
+                            console.log("socket: " + ssocket);
+                            console.log("blue wins");
+                            users[ssocket].emit("win", { wincolor: 2, color: users[ssocket].color });
+                            return;
+                        }
+                    }
+                }
+            } else if (bccounter === 0) {
+                // blue wins
+                for (let sroom of io.sockets.adapter.rooms) {
+                    if (sroom[0] === this.room) {
+                        for (let ssocket of sroom[1]) {
+                            console.log("socket: " + ssocket);
+                            console.log("red wins");
+                            users[ssocket].emit("win", { wincolor: 1, color: users[ssocket].color });
+                            return;
+                        }
+                    }
+                }
+            }
+            console.log("my color is: " + socket.color === 1 ? "red" : "blue");
+              socket.jewels = [];
+              // get your own jewels
+            this.getJewels(socket, board);
+              // get other player's jewels
+            let otherPlayer = this.getOtherPlayer(socket);
+            console.log("other player socket: " + otherPlayer);
+            otherPlayer.jewels = [];
+            let otherPlayerBoard = this.showBoard(otherPlayer);
+            console.log("other player board: " + otherPlayerBoard.toString());
+            this.getJewels(otherPlayer, otherPlayerBoard);
+              console.log("jewels: ", socket.jewels);
+            console.log("other jewels: ", otherPlayer.jewels);
+              // win by jewel count
+            for (let sroom of io.sockets.adapter.rooms) { // loop through all rooms
+                if (sroom[0] === this.room) { // if this room is the one we are in
+                    for (let ssocket of sroom[1]) { // loop through all sockets in this room
+                        console.log("socket: " + ssocket);
+                        console.log("jewels len: " + users[ssocket].jewels.length);
+                        console.log("number of red checkers: " + rccounter);
+                        console.log("number of blue checkers: " + bccounter);
+                        if (users[ssocket].color === 1) {
+                            if (users[ssocket].jewels.length === rccounter) {
+                                console.log("blue wins");
+                                for (let sroom of io.sockets.adapter.rooms) {
+                                    if (sroom[0] === this.room) {
+                                        for (let ssocket of sroom[1]) {
+                                            console.log("socket: " + ssocket);
+                                            console.log("red wins");
+                                            users[ssocket].emit("win", { wincolor: 2, color: users[ssocket].color });
+                                        }
+                                    }
+                                }
+                                return;
+                            }
+                            var osocket = this.getOtherPlayer(users[ssocket]);
+                            if (osocket.jewels.length === bccounter) {
+                                console.log("red wins");
+                                for (let sroom of io.sockets.adapter.rooms) {
+                                    if (sroom[0] === this.room) {
+                                        for (let ssocket of sroom[1]) {
+                                            console.log("socket: " + ssocket);
+                                            console.log("blue wins");
+                                            users[ssocket].emit("win", { wincolor: 1, color: users[ssocket].color });
+                                        }
+                                    }
+                                }
+                                return;
+                              }
+                        } else if (users[ssocket].color === 2) {
+                            if (users[ssocket].jewels.length === bccounter) {
+                                console.log("red wins");
+                                for (let sroom of io.sockets.adapter.rooms) {
+                                    if (sroom[0] === this.room) {
+                                        for (let ssocket of sroom[1]) {
+                                            console.log("socket: " + ssocket);
+                                            console.log("red wins");
+                                            users[ssocket].emit("win", { wincolor: 1, color: users[ssocket].color });
+                                        }
+                                    }
+                                }
+                                return;
+                              }
+                            var oosocket = this.getOtherPlayer(users[ssocket]);
+                            if (oosocket.jewels.length === rccounter) {
+                                console.log("blue wins");
+                                for (let sroom of io.sockets.adapter.rooms) {
+                                    if (sroom[0] === this.room) {
+                                        for (let ssocket of sroom[1]) {
+                                            console.log("socket: " + ssocket);
+                                            console.log("red wins");
+                                            users[ssocket].emit("win", { wincolor: 2, color: users[ssocket].color });
+                                        }
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            } */
+
             socket.isMoving = false;
             socket.toMove = null;
             this.turn = this.turn === 1 ? 2 : 1;
-            this.setBoard(socket, _board3);
-            var _iteratorNormalCompletion3 = true;
-            var _didIteratorError3 = false;
-            var _iteratorError3 = undefined;
+            var _iteratorNormalCompletion7 = true;
+            var _didIteratorError7 = false;
+            var _iteratorError7 = undefined;
 
             try {
-              for (var _iterator3 = io.sockets.adapter.rooms[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                var _sroom = _step3.value;
-                console.log(_sroom);
+              for (var _iterator7 = io.sockets.adapter.rooms[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                var _sroom3 = _step7.value;
 
-                if (_sroom[0] === this.room) {
-                  console.log(_sroom);
-                  var _iteratorNormalCompletion4 = true;
-                  var _didIteratorError4 = false;
-                  var _iteratorError4 = undefined;
+                if (_sroom3[0] === this.room) {
+                  var _iteratorNormalCompletion8 = true;
+                  var _didIteratorError8 = false;
+                  var _iteratorError8 = undefined;
 
                   try {
-                    for (var _iterator4 = _sroom[1][Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-                      var _ssocket = _step4.value;
-                      console.log("socket: " + _ssocket);
+                    for (var _iterator8 = _sroom3[1][Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+                      var _ssocket3 = _step8.value;
+                      console.log("socket: " + _ssocket3);
 
-                      users[_ssocket].emit("update", {
-                        board: games[this.room].showBoard(users[_ssocket])
+                      users[_ssocket3].emit("turn", {
+                        turn: this.turn,
+                        color: users[_ssocket3].color
+                      });
+
+                      users[_ssocket3].emit("update", {
+                        board: games[this.room].showBoard(users[_ssocket3])
                       });
                     }
                   } catch (err) {
-                    _didIteratorError4 = true;
-                    _iteratorError4 = err;
+                    _didIteratorError8 = true;
+                    _iteratorError8 = err;
                   } finally {
                     try {
-                      if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
-                        _iterator4["return"]();
+                      if (!_iteratorNormalCompletion8 && _iterator8["return"] != null) {
+                        _iterator8["return"]();
                       }
                     } finally {
-                      if (_didIteratorError4) {
-                        throw _iteratorError4;
+                      if (_didIteratorError8) {
+                        throw _iteratorError8;
                       }
                     }
                   }
                 }
               }
             } catch (err) {
-              _didIteratorError3 = true;
-              _iteratorError3 = err;
+              _didIteratorError7 = true;
+              _iteratorError7 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
-                  _iterator3["return"]();
+                if (!_iteratorNormalCompletion7 && _iterator7["return"] != null) {
+                  _iterator7["return"]();
                 }
               } finally {
-                if (_didIteratorError3) {
-                  throw _iteratorError3;
+                if (_didIteratorError7) {
+                  throw _iteratorError7;
                 }
               }
             }
@@ -432,10 +666,63 @@ function () {
             socket.emit("moves", {
               moves: []
             });
+            var _iteratorNormalCompletion9 = true;
+            var _didIteratorError9 = false;
+            var _iteratorError9 = undefined;
+
+            try {
+              for (var _iterator9 = io.sockets.adapter.rooms[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+                var _sroom4 = _step9.value;
+
+                if (_sroom4[0] === this.room) {
+                  var _iteratorNormalCompletion10 = true;
+                  var _didIteratorError10 = false;
+                  var _iteratorError10 = undefined;
+
+                  try {
+                    for (var _iterator10 = _sroom4[1][Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+                      var _ssocket4 = _step10.value;
+                      console.log("socket: " + _ssocket4);
+
+                      users[_ssocket4].emit("turn", {
+                        turn: this.turn,
+                        color: users[_ssocket4].color
+                      });
+                    }
+                  } catch (err) {
+                    _didIteratorError10 = true;
+                    _iteratorError10 = err;
+                  } finally {
+                    try {
+                      if (!_iteratorNormalCompletion10 && _iterator10["return"] != null) {
+                        _iterator10["return"]();
+                      }
+                    } finally {
+                      if (_didIteratorError10) {
+                        throw _iteratorError10;
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              _didIteratorError9 = true;
+              _iteratorError9 = err;
+            } finally {
+              try {
+                if (!_iteratorNormalCompletion9 && _iterator9["return"] != null) {
+                  _iterator9["return"]();
+                }
+              } finally {
+                if (_didIteratorError9) {
+                  throw _iteratorError9;
+                }
+              }
+            }
+
             return;
           }
-        } // TODO: send valid moves to the client
-
+        }
 
         var myVar = _board3[row][col];
         var sdigit = ('' + myVar)[0];
@@ -456,38 +743,52 @@ function () {
         };
         var moves = [];
 
-        for (var _i3 = 0; _i3 < 8; _i3++) {
-          for (var _j3 = 0; _j3 < 8; _j3++) {
-            var space = _board3[_i3][_j3];
-            console.log("space: ", space);
+        for (var i = 0; i < 8; i++) {
+          for (var j = 0; j < 8; j++) {
+            var space = _board3[j][i];
+            var tseldigit = ('' + space)[0];
+
+            var _digit2 = parseInt(tseldigit);
 
             var _remaining = this.isValidMove(socket, _board3, {
-              col: _i3,
-              row: _j3
+              row: j,
+              col: i
             });
 
-            console.log("remaining: " + _remaining);
-
-            if (socket.toMove.value === socket.jewels[0].value) {
-              // restricted movement as it is a jewel
-              if (_remaining !== false) {
-                console.log("is jewel");
-
+            if (_remaining !== false) {
+              if (space % 10 === 7 && _digit2 === socket.color) {
+                continue;
+              } else if (socket.toMove.value === socket.jewels[0].value && socket.jewels.length === 1) {
+                // restricted movement as it is a jewel
                 if (_remaining === 0) {
+                  console.log(space % 10);
                   moves.push({
-                    row: _i3,
-                    col: _j3,
+                    row: j,
+                    col: i,
                     rem: socket.toMove.value
                   });
-                  console.log("is jewel valid move");
                 }
-              }
-            } else {
-              if (_remaining !== false) {
-                console.log("is a normal piece");
+              } else if (socket.toMove.value - _remaining + space % 10 > 7) {
+                // overflow, rem = the number of checkers necessary to fill the end spot up to 7 value
+                if (_digit2 !== socket.color) {
+                  moves.push({
+                    row: j,
+                    col: i,
+                    rem: socket.toMove.value - _remaining
+                  });
+                  continue;
+                } else {
+                  var rem = 7 - space % 10;
+                  moves.push({
+                    row: j,
+                    col: i,
+                    rem: rem
+                  });
+                }
+              } else {
                 moves.push({
-                  row: _i3,
-                  col: _j3,
+                  row: j,
+                  col: i,
                   rem: socket.toMove.value - _remaining
                 });
               }
@@ -499,58 +800,56 @@ function () {
         socket.emit("moves", {
           moves: moves
         });
-        var _iteratorNormalCompletion5 = true;
-        var _didIteratorError5 = false;
-        var _iteratorError5 = undefined;
+        var _iteratorNormalCompletion11 = true;
+        var _didIteratorError11 = false;
+        var _iteratorError11 = undefined;
 
         try {
-          for (var _iterator5 = io.sockets.adapter.rooms[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-            var _sroom2 = _step5.value;
-            console.log(_sroom2);
+          for (var _iterator11 = io.sockets.adapter.rooms[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+            var _sroom5 = _step11.value;
 
-            if (_sroom2[0] === this.room) {
-              console.log(_sroom2);
-              var _iteratorNormalCompletion6 = true;
-              var _didIteratorError6 = false;
-              var _iteratorError6 = undefined;
+            if (_sroom5[0] === this.room) {
+              var _iteratorNormalCompletion12 = true;
+              var _didIteratorError12 = false;
+              var _iteratorError12 = undefined;
 
               try {
-                for (var _iterator6 = _sroom2[1][Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-                  var _ssocket2 = _step6.value;
-                  console.log("socket: " + _ssocket2);
+                for (var _iterator12 = _sroom5[1][Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+                  var _ssocket5 = _step12.value;
+                  console.log("socket: " + _ssocket5);
 
-                  users[_ssocket2].emit("turn", {
+                  users[_ssocket5].emit("turn", {
                     turn: this.turn,
-                    color: socket.color
+                    color: users[_ssocket5].color
                   });
                 }
               } catch (err) {
-                _didIteratorError6 = true;
-                _iteratorError6 = err;
+                _didIteratorError12 = true;
+                _iteratorError12 = err;
               } finally {
                 try {
-                  if (!_iteratorNormalCompletion6 && _iterator6["return"] != null) {
-                    _iterator6["return"]();
+                  if (!_iteratorNormalCompletion12 && _iterator12["return"] != null) {
+                    _iterator12["return"]();
                   }
                 } finally {
-                  if (_didIteratorError6) {
-                    throw _iteratorError6;
+                  if (_didIteratorError12) {
+                    throw _iteratorError12;
                   }
                 }
               }
             }
           }
         } catch (err) {
-          _didIteratorError5 = true;
-          _iteratorError5 = err;
+          _didIteratorError11 = true;
+          _iteratorError11 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
-              _iterator5["return"]();
+            if (!_iteratorNormalCompletion11 && _iterator11["return"] != null) {
+              _iterator11["return"]();
             }
           } finally {
-            if (_didIteratorError5) {
-              throw _iteratorError5;
+            if (_didIteratorError11) {
+              throw _iteratorError11;
             }
           }
         }
@@ -563,20 +862,15 @@ function () {
     value: function isValidMove(socket, _board, _ref2) {
       var col = _ref2.col,
           row = _ref2.row;
+
       // if checker value is 1
-      console.log("value: ", socket.toMove.value);
-
       if (socket.toMove.value === 1) {
-        console.log("moving 1"); // if end pos is 1 away from start pos
-
-        console.log("distance to end col: ", Math.abs(col - socket.toMove.col), " distance to end row: ", Math.abs(row - socket.toMove.row));
-
+        // if end pos is 1 away from start pos
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 0;
         }
       } else if (socket.toMove.value === 2) {
-        console.log("moving 2"); // allow pieces to divide depending on the value
-
+        // allow pieces to divide depending on the value
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 1;
         } // if end pos is 2 away from start pos in a straight line
@@ -586,8 +880,7 @@ function () {
           return 0;
         }
       } else if (socket.toMove.value === 3) {
-        console.log("moving 3"); // allow pieces to divide depending on the value
-
+        // allow pieces to divide depending on the value
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 2;
         }
@@ -601,8 +894,7 @@ function () {
           return 0;
         }
       } else if (socket.toMove.value === 4) {
-        console.log("moving 4"); // allow pieces to divide depending on the value
-
+        // allow pieces to divide depending on the value
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 3;
         }
@@ -620,8 +912,7 @@ function () {
           return 0;
         }
       } else if (socket.toMove.value === 5) {
-        console.log("moving 5"); // allow pieces to divide depending on the value
-
+        // allow pieces to divide depending on the value
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 4;
         }
@@ -643,8 +934,7 @@ function () {
           return 0;
         }
       } else if (socket.toMove.value === 6) {
-        console.log("moving 6"); // allow pieces to divide depending on the value
-
+        // allow pieces to divide depending on the value
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 5;
         }
@@ -670,8 +960,7 @@ function () {
           return 0;
         }
       } else if (socket.toMove.value === 7) {
-        console.log("moving 7"); // allow pieces to divide depending on the value
-
+        // allow pieces to divide depending on the value
         if (Math.abs(col - socket.toMove.col) === 1 && Math.abs(row - socket.toMove.row) === 0 || Math.abs(col - socket.toMove.col) === 0 && Math.abs(row - socket.toMove.row) === 1) {
           return 6;
         }
@@ -703,6 +992,187 @@ function () {
       }
 
       return false;
+    }
+  }, {
+    key: "getJewels",
+    value: function getJewels(socket, board) {
+      var hvalue = 0;
+      var rows = 8;
+      var cols = 8;
+
+      for (var i = 0; i < rows; i++) {
+        for (var j = 0; j < cols; j++) {
+          var selplace = board[i][j];
+          var sseldigit = ('' + selplace)[0];
+          var tdigit = parseInt(sseldigit);
+
+          if (tdigit === socket.color) {
+            // if it has the highest value of the pieces of that color the append it to the jewels array
+            hvalue = board[i][j] % 10 > hvalue ? board[i][j] % 10 : hvalue;
+          }
+        }
+      }
+
+      rows = 8;
+      cols = 8;
+
+      for (var _i2 = 0; _i2 < rows; _i2++) {
+        for (var _j2 = 0; _j2 < cols; _j2++) {
+          var sselplace = board[_i2][_j2];
+          var ssseldigit = ('' + sselplace)[0];
+
+          var _tdigit = parseInt(ssseldigit);
+
+          if (_tdigit === socket.color) {
+            if (board[_i2][_j2] % 10 === hvalue) {
+              socket.jewels.push({
+                row: _i2,
+                col: _j2,
+                color: socket.color,
+                value: board[_i2][_j2] % 10
+              });
+            }
+          }
+        }
+      }
+    }
+  }, {
+    key: "getOtherPlayer",
+    value: function getOtherPlayer(socket) {
+      var _iteratorNormalCompletion13 = true;
+      var _didIteratorError13 = false;
+      var _iteratorError13 = undefined;
+
+      try {
+        for (var _iterator13 = io.sockets.adapter.rooms[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+          var sroom = _step13.value;
+
+          if (sroom[0] === this.room) {
+            var _iteratorNormalCompletion14 = true;
+            var _didIteratorError14 = false;
+            var _iteratorError14 = undefined;
+
+            try {
+              for (var _iterator14 = sroom[1][Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
+                var ssocket = _step14.value;
+
+                if (ssocket !== socket.id) {
+                  return users[ssocket];
+                }
+              }
+            } catch (err) {
+              _didIteratorError14 = true;
+              _iteratorError14 = err;
+            } finally {
+              try {
+                if (!_iteratorNormalCompletion14 && _iterator14["return"] != null) {
+                  _iterator14["return"]();
+                }
+              } finally {
+                if (_didIteratorError14) {
+                  throw _iteratorError14;
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        _didIteratorError13 = true;
+        _iteratorError13 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion13 && _iterator13["return"] != null) {
+            _iterator13["return"]();
+          }
+        } finally {
+          if (_didIteratorError13) {
+            throw _iteratorError13;
+          }
+        }
+      }
+    }
+  }, {
+    key: "isWon",
+    value: function isWon(socket) {
+      console.log("chekin if geim is guon, color: " + socket.color);
+      var counter = 0;
+
+      for (var i = 0; i < 8; i++) {
+        for (var j = 0; j < 8; j++) {
+          var place = this.board[i][j];
+          var seldigit = ('' + place)[0];
+          var digit = parseInt(seldigit);
+
+          if (digit === socket.color) {
+            counter++;
+          }
+        }
+      }
+
+      socket.jewels = []; // get your own jewels
+
+      this.getJewels(socket, this.board);
+      console.log("jewels: ", socket.jewels);
+      console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter);
+
+      if (socket.jewels.length === counter) {
+        // i win
+        var _iteratorNormalCompletion15 = true;
+        var _didIteratorError15 = false;
+        var _iteratorError15 = undefined;
+
+        try {
+          for (var _iterator15 = io.sockets.adapter.rooms[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
+            var sroom = _step15.value;
+
+            if (sroom[0] === this.room) {
+              var _iteratorNormalCompletion16 = true;
+              var _didIteratorError16 = false;
+              var _iteratorError16 = undefined;
+
+              try {
+                for (var _iterator16 = sroom[1][Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
+                  var ssocket = _step16.value;
+                  console.log("i wins");
+                  users[ssocket].emit("win", {
+                    losecolor: users[ssocket].color,
+                    color: socket.color,
+                    aa: true
+                  });
+                }
+              } catch (err) {
+                _didIteratorError16 = true;
+                _iteratorError16 = err;
+              } finally {
+                try {
+                  if (!_iteratorNormalCompletion16 && _iterator16["return"] != null) {
+                    _iterator16["return"]();
+                  }
+                } finally {
+                  if (_didIteratorError16) {
+                    throw _iteratorError16;
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          _didIteratorError15 = true;
+          _iteratorError15 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion15 && _iterator15["return"] != null) {
+              _iterator15["return"]();
+            }
+          } finally {
+            if (_didIteratorError15) {
+              throw _iteratorError15;
+            }
+          }
+        }
+
+        return;
+      }
     }
   }]);
 
@@ -1052,6 +1522,7 @@ io.on('connection', function (socket) {
 
 
   users[socket.id] = socket;
+  console.log(rooms);
   socket.on("getRooms", function _callee3(data) {
     return regeneratorRuntime.async(function _callee3$(_context3) {
       while (1) {
@@ -1549,7 +2020,8 @@ io.on('connection', function (socket) {
 
   socket.on("joinRoom", function (_ref3) {
     var room = _ref3.room,
-        username = _ref3.username;
+        username = _ref3.username,
+        isRefresh = _ref3.isRefresh;
     console.log("joining room: ", room);
     pool.query("SELECT * FROM rooms WHERE name = '".concat(room, "'"), function (err, result) {
       if (err) {
@@ -1600,12 +2072,13 @@ io.on('connection', function (socket) {
                     socket.broadcast.to(room).emit('message', messageFormatter("system", "System", "User " + socket.username + " has joined the chat."));
                   } else if (_sel_room.type === 'game') {
                     console.log("game room");
-                    console.log("users: " + _sel_room.users);
+                    console.log("users before enter: " + _sel_room.users); // if there is already 2 people before socket joins, redirect
 
                     if (_sel_room.users.length > 1) {
                       socket.emit("redir");
                       return;
-                    }
+                    } // socket room join
+
 
                     socket.join(room);
 
@@ -1613,69 +2086,146 @@ io.on('connection', function (socket) {
 
                     console.log("User " + socket.username + " joined room " + room);
                     io.to(room).emit("users", _sel_room.users);
+                    console.log("users after enter: " + _sel_room.users);
+
+                    if (isRefresh) {
+                      // TODO: maybe implement a better solution ???
+                      console.log("has refreshed page");
+                      io.to(room).emit("redir", "/?error=invalid-sid");
+                    }
 
                     if (_sel_room.users.length === 2) {
+                      console.log("second user " + socket.username + " joined room " + room);
                       socket.color = 2;
+                      socket.jewels = [];
+
+                      if (games[room] !== undefined) {
+                        delete games[room];
+                        socket.color = 1;
+                        socket.jewels = [];
+                        var othersocket;
+                        var _iteratorNormalCompletion17 = true;
+                        var _didIteratorError17 = false;
+                        var _iteratorError17 = undefined;
+
+                        try {
+                          for (var _iterator17 = io.sockets.adapter.rooms[Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
+                            var sroom = _step17.value;
+
+                            if (sroom[0] === room) {
+                              var _iteratorNormalCompletion18 = true;
+                              var _didIteratorError18 = false;
+                              var _iteratorError18 = undefined;
+
+                              try {
+                                for (var _iterator18 = sroom[1][Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
+                                  var ssocket = _step18.value;
+
+                                  if (ssocket !== socket.id) {
+                                    console.log("other socket");
+                                    othersocket = users[ssocket];
+                                    othersocket.color = 2;
+                                    othersocket.jewels = [];
+                                  }
+                                }
+                              } catch (err) {
+                                _didIteratorError18 = true;
+                                _iteratorError18 = err;
+                              } finally {
+                                try {
+                                  if (!_iteratorNormalCompletion18 && _iterator18["return"] != null) {
+                                    _iterator18["return"]();
+                                  }
+                                } finally {
+                                  if (_didIteratorError18) {
+                                    throw _iteratorError18;
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        } catch (err) {
+                          _didIteratorError17 = true;
+                          _iteratorError17 = err;
+                        } finally {
+                          try {
+                            if (!_iteratorNormalCompletion17 && _iterator17["return"] != null) {
+                              _iterator17["return"]();
+                            }
+                          } finally {
+                            if (_didIteratorError17) {
+                              throw _iteratorError17;
+                            }
+                          }
+                        }
+                      }
+
                       games[room] = new Kake(room);
                       console.log("second");
-                      console.log(users);
-                      var _iteratorNormalCompletion7 = true;
-                      var _didIteratorError7 = false;
-                      var _iteratorError7 = undefined;
+                      var _iteratorNormalCompletion19 = true;
+                      var _didIteratorError19 = false;
+                      var _iteratorError19 = undefined;
 
                       try {
-                        for (var _iterator7 = io.sockets.adapter.rooms[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-                          var sroom = _step7.value;
-                          console.log(sroom);
+                        for (var _iterator19 = io.sockets.adapter.rooms[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
+                          var _sroom6 = _step19.value;
 
-                          if (sroom[0] === room) {
-                            console.log(sroom);
-                            var _iteratorNormalCompletion8 = true;
-                            var _didIteratorError8 = false;
-                            var _iteratorError8 = undefined;
+                          if (_sroom6[0] === room) {
+                            var _iteratorNormalCompletion20 = true;
+                            var _didIteratorError20 = false;
+                            var _iteratorError20 = undefined;
 
                             try {
-                              for (var _iterator8 = sroom[1][Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-                                var ssocket = _step8.value;
-                                console.log("socket: " + ssocket);
-                                users[ssocket].emit("ok", {
-                                  data: games[room].showBoard(users[ssocket]),
-                                  color: users[ssocket.color]
+                              for (var _iterator20 = _sroom6[1][Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
+                                var _ssocket6 = _step20.value;
+                                console.log("socket: " + _ssocket6);
+
+                                users[_ssocket6].emit("test", {
+                                  color: users[_ssocket6].color === 1 ? "red" : "blue",
+                                  username: users[_ssocket6].username
+                                });
+
+                                users[_ssocket6].emit("ok", {
+                                  data: games[room].showBoard(users[_ssocket6]),
+                                  color: users[_ssocket6].color
                                 });
                               }
                             } catch (err) {
-                              _didIteratorError8 = true;
-                              _iteratorError8 = err;
+                              _didIteratorError20 = true;
+                              _iteratorError20 = err;
                             } finally {
                               try {
-                                if (!_iteratorNormalCompletion8 && _iterator8["return"] != null) {
-                                  _iterator8["return"]();
+                                if (!_iteratorNormalCompletion20 && _iterator20["return"] != null) {
+                                  _iterator20["return"]();
                                 }
                               } finally {
-                                if (_didIteratorError8) {
-                                  throw _iteratorError8;
+                                if (_didIteratorError20) {
+                                  throw _iteratorError20;
                                 }
                               }
                             }
                           }
                         }
                       } catch (err) {
-                        _didIteratorError7 = true;
-                        _iteratorError7 = err;
+                        _didIteratorError19 = true;
+                        _iteratorError19 = err;
                       } finally {
                         try {
-                          if (!_iteratorNormalCompletion7 && _iterator7["return"] != null) {
-                            _iterator7["return"]();
+                          if (!_iteratorNormalCompletion19 && _iterator19["return"] != null) {
+                            _iterator19["return"]();
                           }
                         } finally {
-                          if (_didIteratorError7) {
-                            throw _iteratorError7;
+                          if (_didIteratorError19) {
+                            throw _iteratorError19;
                           }
                         }
                       }
                     } else if (_sel_room.users.length === 1) {
-                      console.log("first");
+                      console.log("first user " + socket.username + " joined room " + room);
                       socket.color = 1;
+                      socket.jewels = [];
+                    } else {
+                      socket.emit("redir", "/?error=room-full");
                     }
                   }
                 } else {
@@ -1756,35 +2306,35 @@ io.on('connection', function (socket) {
     }
 
     if (data.toAdd.pack) {
-      var _iteratorNormalCompletion9 = true;
-      var _didIteratorError9 = false;
-      var _iteratorError9 = undefined;
+      var _iteratorNormalCompletion21 = true;
+      var _didIteratorError21 = false;
+      var _iteratorError21 = undefined;
 
       try {
-        for (var _iterator9 = packs.find(function (pack) {
+        for (var _iterator21 = packs.find(function (pack) {
           return pack.name === data.toAdd.pack;
-        }).items[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-          var item = _step9.value;
+        }).items[Symbol.iterator](), _step21; !(_iteratorNormalCompletion21 = (_step21 = _iterator21.next()).done); _iteratorNormalCompletion21 = true) {
+          var item = _step21.value;
           socket.player.inventory.push(new Item(item));
         }
       } catch (err) {
-        _didIteratorError9 = true;
-        _iteratorError9 = err;
+        _didIteratorError21 = true;
+        _iteratorError21 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion9 && _iterator9["return"] != null) {
-            _iterator9["return"]();
+          if (!_iteratorNormalCompletion21 && _iterator21["return"] != null) {
+            _iterator21["return"]();
           }
         } finally {
-          if (_didIteratorError9) {
-            throw _iteratorError9;
+          if (_didIteratorError21) {
+            throw _iteratorError21;
           }
         }
       }
     }
 
-    for (var _i4 = 0, _Object$keys = Object.keys(data.toAdd); _i4 < _Object$keys.length; _i4++) {
-      var key = _Object$keys[_i4];
+    for (var _i3 = 0, _Object$keys = Object.keys(data.toAdd); _i3 < _Object$keys.length; _i3++) {
+      var key = _Object$keys[_i3];
       console.log(key);
       console.log("to add: " + data.toAdd[key]);
       console.log(socket.player[key]);
@@ -1796,24 +2346,24 @@ io.on('connection', function (socket) {
 
           if (Array.isArray(split_data)) {
             console.log("korrekt");
-            var _iteratorNormalCompletion10 = true;
-            var _didIteratorError10 = false;
-            var _iteratorError10 = undefined;
+            var _iteratorNormalCompletion22 = true;
+            var _didIteratorError22 = false;
+            var _iteratorError22 = undefined;
 
             try {
               var _loop = function _loop() {
-                var item = _step10.value;
+                var item = _step22.value;
                 console.log("correkt 2");
 
                 if (Array.isArray(item)) {
                   console.log("item");
-                  var _iteratorNormalCompletion11 = true;
-                  var _didIteratorError11 = false;
-                  var _iteratorError11 = undefined;
+                  var _iteratorNormalCompletion23 = true;
+                  var _didIteratorError23 = false;
+                  var _iteratorError23 = undefined;
 
                   try {
                     var _loop2 = function _loop2() {
-                      var i = _step11.value;
+                      var i = _step23.value;
                       console.log("i");
 
                       if (weapons.find(function (w) {
@@ -1840,20 +2390,20 @@ io.on('connection', function (socket) {
                       }
                     };
 
-                    for (var _iterator11 = item[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+                    for (var _iterator23 = item[Symbol.iterator](), _step23; !(_iteratorNormalCompletion23 = (_step23 = _iterator23.next()).done); _iteratorNormalCompletion23 = true) {
                       _loop2();
                     }
                   } catch (err) {
-                    _didIteratorError11 = true;
-                    _iteratorError11 = err;
+                    _didIteratorError23 = true;
+                    _iteratorError23 = err;
                   } finally {
                     try {
-                      if (!_iteratorNormalCompletion11 && _iterator11["return"] != null) {
-                        _iterator11["return"]();
+                      if (!_iteratorNormalCompletion23 && _iterator23["return"] != null) {
+                        _iterator23["return"]();
                       }
                     } finally {
-                      if (_didIteratorError11) {
-                        throw _iteratorError11;
+                      if (_didIteratorError23) {
+                        throw _iteratorError23;
                       }
                     }
                   }
@@ -1863,14 +2413,17 @@ io.on('connection', function (socket) {
                   if (weapons.find(function (w) {
                     return w.name === item;
                   })) {
+                    // jshint ignore:line
                     socket.player[key] = socket.player[key].concat([new Weapon(item)]);
                   } else if (armors.find(function (a) {
                     return a.name === item;
                   })) {
+                    // jshint ignore:line
                     socket.player[key] = socket.player[key].concat([new Armor(item)]);
                   } else if (packs.find(function (p) {
                     return p.name === item;
                   })) {
+                    // jshint ignore:line
                     socket.player[key] = socket.player[key].concat([new Pack(item)]);
                   } else {
                     socket.player[key] = socket.player[key].concat([new Item(item)]);
@@ -1878,20 +2431,20 @@ io.on('connection', function (socket) {
                 }
               };
 
-              for (var _iterator10 = split_data[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+              for (var _iterator22 = split_data[Symbol.iterator](), _step22; !(_iteratorNormalCompletion22 = (_step22 = _iterator22.next()).done); _iteratorNormalCompletion22 = true) {
                 _loop();
               }
             } catch (err) {
-              _didIteratorError10 = true;
-              _iteratorError10 = err;
+              _didIteratorError22 = true;
+              _iteratorError22 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion10 && _iterator10["return"] != null) {
-                  _iterator10["return"]();
+                if (!_iteratorNormalCompletion22 && _iterator22["return"] != null) {
+                  _iterator22["return"]();
                 }
               } finally {
-                if (_didIteratorError10) {
-                  throw _iteratorError10;
+                if (_didIteratorError22) {
+                  throw _iteratorError22;
                 }
               }
             }
@@ -1978,10 +2531,31 @@ io.on('connection', function (socket) {
   });
   socket.on("move", function (data) {
     if (games[socket.current_room]) games[socket.current_room].move(socket, data);
+  });
+  socket.on("isWon", function () {
+    if (games[socket.current_room]) games[socket.current_room].isWon(socket);
   }); // on disconnect
 
   socket.on('disconnect', function () {
     socket.color = undefined;
+    var room = rooms.find(function (room) {
+      return room.name === socket.current_room;
+    });
+
+    if (room) {
+      if (room.type === "game") {
+        if (games.find(function (game) {
+          return game.room === room.name;
+        })) {
+          io.to(room).emit("redir");
+          room.users = []; // remove the game from games array
+
+          games = games.filter(function (game) {
+            return game.room !== room.name;
+          });
+        }
+      }
+    }
 
     if (socket.isLobby) {
       delete users[socket.id];

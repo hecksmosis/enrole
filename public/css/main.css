@@ -271,3 +271,7 @@ body {
         display: none;
     }
 }
+
+#hide-on-lobby {
+    display: none;
+}

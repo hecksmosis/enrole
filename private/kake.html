@@ -14,10 +14,24 @@
 </head>
 
 <body>
-    <h1>PLAY KAKE</h1>
-    <h4 id="wait">Waiting for other player to join</h4>
-    <canvas id="gc" width="400" height="400"></canvas>
+    <nav class="navbar navbar-light" style="background-color: #eba85c; padding-right: 20px; padding-left: 20px; align-items: center;">
+        <a class="navbar-brand" href="#">Kake</a>
+        <ul class="nav navbar-nav navbar-right navbar-custom">
+            <li class="nav-item active">
+                <a class="nav-link" href="#" id="hide-on-lobby">Your color is&nbsp;<b id="color"></b>&nbsp;and it is&nbsp;<b id="turn"></b>'s turn</a>
+            </li>
+        </ul>
+        <a class="navbar-text" href="/">Logged in as: <b id="username"></b></a>
+        <a class="nav-link" href="#" id="leave-btn">Return to lobby</a>
+    </nav>
+    <div class="cont-main">
+        <h4 id="wait">Waiting for other player to join</h4>
+        <div class="break"></div>
 
+        <div class="kake-board-container" id="canvas-container">
+            <canvas id="gc" width="400" height="400"></canvas>
+        </div>
+    </div>
     <script src="/js/kake.js"></script>
 </body>
 
