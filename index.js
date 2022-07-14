@@ -136,6 +136,7 @@ class Kake {
 
     move(socket, { col, row, isChecker, color }) {
         if (this.turn === socket.color) {
+            io.to(this.room).emit("isWon");
             let board = this.showBoard(socket);
             socket.jewels = [];
             // TODO: Moves that make you lose should be invalid
@@ -176,6 +177,8 @@ class Kake {
                                 board[row][col] = socket.color * 10 + 7;
                                 console.log("can't move");
                                 this.setBoard(socket, board);
+                                io.to(this.room).emit("isWon");
+
                                 socket.isMoving = false;
                                 socket.toMove = null;
 
@@ -194,6 +197,8 @@ class Kake {
                                 console.log("overflow");
                                 board[row][col] = socket.color * 10 + 7;
                                 board[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + socket.toMove.value - canmove;
+
+                                io.to(this.room).emit("isWon");
                                 socket.isMoving = false;
                                 socket.toMove = null;
                                 this.turn = this.turn === 1 ? 2 : 1;
@@ -226,6 +231,7 @@ class Kake {
                             if (sroom[0] === this.room) {
                                 for (let ssocket of sroom[1]) {
                                     console.log("socket: " + ssocket);
+                                    users[ssocket].emit("turn", { turn: this.turn, color: users[ssocket].color });
                                     users[ssocket].emit("update", { board: games[this.room].showBoard(users[ssocket]) });
                                 }
                             }
@@ -242,152 +248,14 @@ class Kake {
                     }
                     console.log(board[row][col]);
                     console.log(board);
+                    console.log("NOTE => room: ", this.room);
 
                     // update board
                     this.setBoard(socket, board);
 
-                    console.log("object board: " + this.board.toString());
+                    console.log("object board: " + this.board.toString()); // this.board is for blue player and this-invertedBoard is for red player
                     console.log("emitting is won");
                     io.to(this.room).emit("isWon");
-
-                    /*// win
-                    let rccounter = 0;
-                    let bccounter = 0;
-                    for (let i = 0; i < 8; i++) {
-                        for (let j = 0; j < 8; j++) {
-                            place = this.board[i][j];
-                            seldigit = ('' + place)[0];
-                            digit = parseInt(seldigit);
-
-                            if (digit === 1) {
-                                rccounter++;
-                                console.log("red counter: " + rccounter);
-                            } else if (digit === 2) {
-                                bccounter++;
-                                console.log("blue counter: " + bccounter);
-                            }
-
-                        }
-                    }
-
-                    console.log("checker counters");
-                    console.log("red" + rccounter);
-                    console.log("blue" + bccounter);
-
-                    /*
-                    if (rccounter === 0) {
-                        // red loses
-                        for (let sroom of io.sockets.adapter.rooms) {
-                            if (sroom[0] === this.room) {
-                                for (let ssocket of sroom[1]) {
-                                    console.log("socket: " + ssocket);
-                                    console.log("blue wins");
-                                    users[ssocket].emit("win", { wincolor: 2, color: users[ssocket].color });
-                                    return;
-                                }
-                            }
-                        }
-                    } else if (bccounter === 0) {
-                        // blue wins
-                        for (let sroom of io.sockets.adapter.rooms) {
-                            if (sroom[0] === this.room) {
-                                for (let ssocket of sroom[1]) {
-                                    console.log("socket: " + ssocket);
-                                    console.log("red wins");
-                                    users[ssocket].emit("win", { wincolor: 1, color: users[ssocket].color });
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    console.log("my color is: " + socket.color === 1 ? "red" : "blue");
-
-                    socket.jewels = [];
-
-                    // get your own jewels
-                    this.getJewels(socket, board);
-
-                    // get other player's jewels
-                    let otherPlayer = this.getOtherPlayer(socket);
-                    console.log("other player socket: " + otherPlayer);
-                    otherPlayer.jewels = [];
-                    let otherPlayerBoard = this.showBoard(otherPlayer);
-                    console.log("other player board: " + otherPlayerBoard.toString());
-                    this.getJewels(otherPlayer, otherPlayerBoard);
-
-                    console.log("jewels: ", socket.jewels);
-                    console.log("other jewels: ", otherPlayer.jewels);
-
-                    // win by jewel count
-                    for (let sroom of io.sockets.adapter.rooms) { // loop through all rooms
-                        if (sroom[0] === this.room) { // if this room is the one we are in
-                            for (let ssocket of sroom[1]) { // loop through all sockets in this room
-                                console.log("socket: " + ssocket);
-                                console.log("jewels len: " + users[ssocket].jewels.length);
-                                console.log("number of red checkers: " + rccounter);
-                                console.log("number of blue checkers: " + bccounter);
-                                if (users[ssocket].color === 1) {
-                                    if (users[ssocket].jewels.length === rccounter) {
-                                        console.log("blue wins");
-                                        for (let sroom of io.sockets.adapter.rooms) {
-                                            if (sroom[0] === this.room) {
-                                                for (let ssocket of sroom[1]) {
-                                                    console.log("socket: " + ssocket);
-                                                    console.log("red wins");
-                                                    users[ssocket].emit("win", { wincolor: 2, color: users[ssocket].color });
-                                                }
-                                            }
-                                        }
-                                        return;
-                                    }
-                                    var osocket = this.getOtherPlayer(users[ssocket]);
-                                    if (osocket.jewels.length === bccounter) {
-                                        console.log("red wins");
-                                        for (let sroom of io.sockets.adapter.rooms) {
-                                            if (sroom[0] === this.room) {
-                                                for (let ssocket of sroom[1]) {
-                                                    console.log("socket: " + ssocket);
-                                                    console.log("blue wins");
-                                                    users[ssocket].emit("win", { wincolor: 1, color: users[ssocket].color });
-                                                }
-                                            }
-                                        }
-                                        return;
-
-                                    }
-                                } else if (users[ssocket].color === 2) {
-                                    if (users[ssocket].jewels.length === bccounter) {
-                                        console.log("red wins");
-                                        for (let sroom of io.sockets.adapter.rooms) {
-                                            if (sroom[0] === this.room) {
-                                                for (let ssocket of sroom[1]) {
-                                                    console.log("socket: " + ssocket);
-                                                    console.log("red wins");
-                                                    users[ssocket].emit("win", { wincolor: 1, color: users[ssocket].color });
-                                                }
-                                            }
-                                        }
-                                        return;
-
-                                    }
-                                    var oosocket = this.getOtherPlayer(users[ssocket]);
-                                    if (oosocket.jewels.length === rccounter) {
-                                        console.log("blue wins");
-                                        for (let sroom of io.sockets.adapter.rooms) {
-                                            if (sroom[0] === this.room) {
-                                                for (let ssocket of sroom[1]) {
-                                                    console.log("socket: " + ssocket);
-                                                    console.log("red wins");
-                                                    users[ssocket].emit("win", { wincolor: 2, color: users[ssocket].color });
-                                                }
-                                            }
-                                        }
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    } */
 
                     socket.isMoving = false;
                     socket.toMove = null;
@@ -653,9 +521,11 @@ class Kake {
         }
 
         socket.jewels = [];
+        console.log("board: ", this.board);
+        console.log("inverted board: ", this.invertedBoard);
 
         // get your own jewels
-        this.getJewels(socket, this.board);
+        this.getJewels(socket, socket.color === 2 ? this.board : this.invertedBoard);
         console.log("jewels: ", socket.jewels);
         console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter);
 
