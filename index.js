@@ -1311,7 +1311,7 @@ io.on('connection', function(socket) {
                                                 if (sroom[0] === room) {
                                                     for (let ssocket of sroom[1]) {
                                                         console.log("socket: " + ssocket);
-                                                        users[ssocket].emit("test", { color: users[ssocket].color === 1 ? "red" : "blue", username: users[ssocket].username });
+                                                        users[ssocket].emit("test", { color: users[ssocket].color === 1 ? "red" : "blue", username: users[ssocket].username, turn: 1 });
                                                         users[ssocket].emit("ok", { data: games[room].showBoard(users[ssocket]), color: users[ssocket].color });
                                                     }
                                                 }

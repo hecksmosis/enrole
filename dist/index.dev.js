@@ -2067,7 +2067,8 @@ io.on('connection', function (socket) {
 
                                 users[_ssocket6].emit("test", {
                                   color: users[_ssocket6].color === 1 ? "red" : "blue",
-                                  username: users[_ssocket6].username
+                                  username: users[_ssocket6].username,
+                                  turn: 1
                                 });
 
                                 users[_ssocket6].emit("ok", {

@@ -34,6 +34,8 @@ socket.on("noPerms", function () {
   window.location = '/';
 });
 socket.on("redir", function (data) {
+  console.log("redirecting to: " + data !== undefined ? data : "root");
+
   if (data) {
     window.location = data;
   }
