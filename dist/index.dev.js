@@ -477,7 +477,7 @@ function () {
             console.log("NOTE => room: ", this.room); // update board
 
             this.setBoard(socket, _board3);
-            console.log("object board: " + this.board.toString()); // this.board is for blue player and this-invertedBoard is for red player
+            console.log("object board: " + this.board.toString()); // this.board is for blue player and this.invertedBoard is for red player
 
             console.log("emitting is won");
             io.to(this.room).emit("isWon");
@@ -998,10 +998,11 @@ function () {
 
       this.getJewels(socket, socket.color === 2 ? this.board : this.invertedBoard);
       console.log("jewels: ", socket.jewels);
-      console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter);
+      console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter); // win / loss mechanism
 
       if (socket.jewels.length === counter) {
         // i win
+        var loss_username = this.getOtherPlayer(socket).username;
         var _iteratorNormalCompletion15 = true;
         var _didIteratorError15 = false;
         var _iteratorError15 = undefined;
@@ -1056,6 +1057,17 @@ function () {
           }
         }
 
+        console.log("User " + socket.username + " won the game!");
+        pool.query("UPDATE users SET wins = wins + 1 WHERE name = '".concat(socket.username, "'"), function (err, result) {
+          if (err) {
+            console.log(err);
+          }
+        });
+        pool.query("UPDATE users SET losses = losses + 1 WHERE name = '".concat(loss_username, "'"), function (err, result) {
+          if (err) {
+            console.log(err);
+          }
+        });
         return;
       }
     }

@@ -253,7 +253,7 @@ class Kake {
                     // update board
                     this.setBoard(socket, board);
 
-                    console.log("object board: " + this.board.toString()); // this.board is for blue player and this-invertedBoard is for red player
+                    console.log("object board: " + this.board.toString()); // this.board is for blue player and this.invertedBoard is for red player
                     console.log("emitting is won");
                     io.to(this.room).emit("isWon");
 
@@ -529,8 +529,11 @@ class Kake {
         console.log("jewels: ", socket.jewels);
         console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter);
 
+        // win / loss mechanism
+
         if (socket.jewels.length === counter) {
             // i win
+            var loss_username = this.getOtherPlayer(socket).username;
             for (let sroom of io.sockets.adapter.rooms) {
                 if (sroom[0] === this.room) {
                     for (let ssocket of sroom[1]) {
@@ -538,7 +541,29 @@ class Kake {
                         users[ssocket].emit("win", { losecolor: users[ssocket].color, color: socket.color, aa: true });
                     }
                 }
+
             }
+
+            console.log("User " + socket.username + " won the game!");
+
+            pool.query(
+                `UPDATE users SET wins = wins + 1 WHERE name = '${socket.username}'`,
+                (err, result) => {
+                    if (err) {
+                        console.log(err);
+                    }
+                }
+            );
+
+            pool.query(
+                `UPDATE users SET losses = losses + 1 WHERE name = '${loss_username}'`,
+                (err, result) => {
+                    if (err) {
+                        console.log(err);
+                    }
+                }
+            );
+
             return;
         }
 
