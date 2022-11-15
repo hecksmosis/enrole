@@ -255,6 +255,8 @@ class Kake {
 
                     console.log("object board: " + this.board.toString()); // this.board is for blue player and this.invertedBoard is for red player
                     console.log("emitting is won");
+
+                    // emit only once?
                     io.to(this.room).emit("isWon");
 
                     socket.isMoving = false;
@@ -504,7 +506,7 @@ class Kake {
         }
     }
 
-    isWon(socket) {
+    async isWon(socket) {
         console.log("chekin if geim is guon, color: " + socket.color);
 
         let counter = 0;
@@ -533,21 +535,19 @@ class Kake {
 
         if (socket.jewels.length === counter) {
             // i win
-            var loss_username = this.getOtherPlayer(socket).username;
+            var win_username = this.getOtherPlayer(socket).username;
             for (let sroom of io.sockets.adapter.rooms) {
                 if (sroom[0] === this.room) {
                     for (let ssocket of sroom[1]) {
-                        console.log("i wins");
                         users[ssocket].emit("win", { losecolor: users[ssocket].color, color: socket.color, aa: true });
                     }
                 }
-
             }
 
-            console.log("User " + socket.username + " won the game!");
+            console.log("User " + socket.username + " lost the game!");
 
-            pool.query(
-                `UPDATE users SET wins = wins + 1 WHERE name = '${socket.username}'`,
+            await pool.query(
+                `UPDATE users SET wins = wins + 1 WHERE name = '${win_username}'`,
                 (err, result) => {
                     if (err) {
                         console.log(err);
@@ -555,8 +555,8 @@ class Kake {
                 }
             );
 
-            pool.query(
-                `UPDATE users SET losses = losses + 1 WHERE name = '${loss_username}'`,
+            await pool.query(
+                `UPDATE users SET losses = losses + 1 WHERE name = '${socket.username}'`,
                 (err, result) => {
                     if (err) {
                         console.log(err);
@@ -1526,7 +1526,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on("move", function(data) { if (games[socket.current_room]) games[socket.current_room].move(socket, data); });
-    socket.on("isWon", function() { if (games[socket.current_room]) games[socket.current_room].isWon(socket); });
+
+    socket.on("isWon", async function() { if (games[socket.current_room]) await games[socket.current_room].isWon(socket); });
 
     // on disconnect
     socket.on('disconnect', function() {

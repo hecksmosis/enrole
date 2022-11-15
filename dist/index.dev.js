@@ -479,7 +479,8 @@ function () {
             this.setBoard(socket, _board3);
             console.log("object board: " + this.board.toString()); // this.board is for blue player and this.invertedBoard is for red player
 
-            console.log("emitting is won");
+            console.log("emitting is won"); // emit only once?
+
             io.to(this.room).emit("isWon");
             socket.isMoving = false;
             socket.toMove = null;
@@ -977,99 +978,173 @@ function () {
   }, {
     key: "isWon",
     value: function isWon(socket) {
-      console.log("chekin if geim is guon, color: " + socket.color);
-      var counter = 0;
+      var counter, i, j, place, seldigit, digit, win_username, _iteratorNormalCompletion15, _didIteratorError15, _iteratorError15, _iterator15, _step15, sroom, _iteratorNormalCompletion16, _didIteratorError16, _iteratorError16, _iterator16, _step16, ssocket;
 
-      for (var i = 0; i < 8; i++) {
-        for (var j = 0; j < 8; j++) {
-          var place = this.board[i][j];
-          var seldigit = ('' + place)[0];
-          var digit = parseInt(seldigit);
+      return regeneratorRuntime.async(function isWon$(_context) {
+        while (1) {
+          switch (_context.prev = _context.next) {
+            case 0:
+              console.log("chekin if geim is guon, color: " + socket.color);
+              counter = 0;
 
-          if (digit === socket.color) {
-            counter++;
-          }
-        }
-      }
+              for (i = 0; i < 8; i++) {
+                for (j = 0; j < 8; j++) {
+                  place = this.board[i][j];
+                  seldigit = ('' + place)[0];
+                  digit = parseInt(seldigit);
 
-      socket.jewels = [];
-      console.log("board: ", this.board);
-      console.log("inverted board: ", this.invertedBoard); // get your own jewels
-
-      this.getJewels(socket, socket.color === 2 ? this.board : this.invertedBoard);
-      console.log("jewels: ", socket.jewels);
-      console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter); // win / loss mechanism
-
-      if (socket.jewels.length === counter) {
-        // i win
-        var loss_username = this.getOtherPlayer(socket).username;
-        var _iteratorNormalCompletion15 = true;
-        var _didIteratorError15 = false;
-        var _iteratorError15 = undefined;
-
-        try {
-          for (var _iterator15 = io.sockets.adapter.rooms[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
-            var sroom = _step15.value;
-
-            if (sroom[0] === this.room) {
-              var _iteratorNormalCompletion16 = true;
-              var _didIteratorError16 = false;
-              var _iteratorError16 = undefined;
-
-              try {
-                for (var _iterator16 = sroom[1][Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
-                  var ssocket = _step16.value;
-                  console.log("i wins");
-                  users[ssocket].emit("win", {
-                    losecolor: users[ssocket].color,
-                    color: socket.color,
-                    aa: true
-                  });
-                }
-              } catch (err) {
-                _didIteratorError16 = true;
-                _iteratorError16 = err;
-              } finally {
-                try {
-                  if (!_iteratorNormalCompletion16 && _iterator16["return"] != null) {
-                    _iterator16["return"]();
-                  }
-                } finally {
-                  if (_didIteratorError16) {
-                    throw _iteratorError16;
+                  if (digit === socket.color) {
+                    counter++;
                   }
                 }
               }
-            }
-          }
-        } catch (err) {
-          _didIteratorError15 = true;
-          _iteratorError15 = err;
-        } finally {
-          try {
-            if (!_iteratorNormalCompletion15 && _iterator15["return"] != null) {
-              _iterator15["return"]();
-            }
-          } finally {
-            if (_didIteratorError15) {
+
+              socket.jewels = [];
+              console.log("board: ", this.board);
+              console.log("inverted board: ", this.invertedBoard); // get your own jewels
+
+              this.getJewels(socket, socket.color === 2 ? this.board : this.invertedBoard);
+              console.log("jewels: ", socket.jewels);
+              console.log("jewel count: ", socket.jewels.length, ", piece count: ", counter); // win / loss mechanism
+
+              if (!(socket.jewels.length === counter)) {
+                _context.next = 61;
+                break;
+              }
+
+              // i win
+              win_username = this.getOtherPlayer(socket).username;
+              _iteratorNormalCompletion15 = true;
+              _didIteratorError15 = false;
+              _iteratorError15 = undefined;
+              _context.prev = 14;
+              _iterator15 = io.sockets.adapter.rooms[Symbol.iterator]();
+
+            case 16:
+              if (_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done) {
+                _context.next = 41;
+                break;
+              }
+
+              sroom = _step15.value;
+
+              if (!(sroom[0] === this.room)) {
+                _context.next = 38;
+                break;
+              }
+
+              _iteratorNormalCompletion16 = true;
+              _didIteratorError16 = false;
+              _iteratorError16 = undefined;
+              _context.prev = 22;
+
+              for (_iterator16 = sroom[1][Symbol.iterator](); !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
+                ssocket = _step16.value;
+                users[ssocket].emit("win", {
+                  losecolor: users[ssocket].color,
+                  color: socket.color,
+                  aa: true
+                });
+              }
+
+              _context.next = 30;
+              break;
+
+            case 26:
+              _context.prev = 26;
+              _context.t0 = _context["catch"](22);
+              _didIteratorError16 = true;
+              _iteratorError16 = _context.t0;
+
+            case 30:
+              _context.prev = 30;
+              _context.prev = 31;
+
+              if (!_iteratorNormalCompletion16 && _iterator16["return"] != null) {
+                _iterator16["return"]();
+              }
+
+            case 33:
+              _context.prev = 33;
+
+              if (!_didIteratorError16) {
+                _context.next = 36;
+                break;
+              }
+
+              throw _iteratorError16;
+
+            case 36:
+              return _context.finish(33);
+
+            case 37:
+              return _context.finish(30);
+
+            case 38:
+              _iteratorNormalCompletion15 = true;
+              _context.next = 16;
+              break;
+
+            case 41:
+              _context.next = 47;
+              break;
+
+            case 43:
+              _context.prev = 43;
+              _context.t1 = _context["catch"](14);
+              _didIteratorError15 = true;
+              _iteratorError15 = _context.t1;
+
+            case 47:
+              _context.prev = 47;
+              _context.prev = 48;
+
+              if (!_iteratorNormalCompletion15 && _iterator15["return"] != null) {
+                _iterator15["return"]();
+              }
+
+            case 50:
+              _context.prev = 50;
+
+              if (!_didIteratorError15) {
+                _context.next = 53;
+                break;
+              }
+
               throw _iteratorError15;
-            }
+
+            case 53:
+              return _context.finish(50);
+
+            case 54:
+              return _context.finish(47);
+
+            case 55:
+              console.log("User " + socket.username + " lost the game!");
+              _context.next = 58;
+              return regeneratorRuntime.awrap(pool.query("UPDATE users SET wins = wins + 1 WHERE name = '".concat(win_username, "'"), function (err, result) {
+                if (err) {
+                  console.log(err);
+                }
+              }));
+
+            case 58:
+              _context.next = 60;
+              return regeneratorRuntime.awrap(pool.query("UPDATE users SET losses = losses + 1 WHERE name = '".concat(socket.username, "'"), function (err, result) {
+                if (err) {
+                  console.log(err);
+                }
+              }));
+
+            case 60:
+              return _context.abrupt("return");
+
+            case 61:
+            case "end":
+              return _context.stop();
           }
         }
-
-        console.log("User " + socket.username + " won the game!");
-        pool.query("UPDATE users SET wins = wins + 1 WHERE name = '".concat(socket.username, "'"), function (err, result) {
-          if (err) {
-            console.log(err);
-          }
-        });
-        pool.query("UPDATE users SET losses = losses + 1 WHERE name = '".concat(loss_username, "'"), function (err, result) {
-          if (err) {
-            console.log(err);
-          }
-        });
-        return;
-      }
+      }, null, this, [[14, 43, 47, 55], [22, 26, 30, 38], [31,, 33, 37], [48,, 50, 54]]);
     }
   }]);
 
@@ -1275,9 +1350,9 @@ app.post("/login", function (req, res) {
   }
 
   pool.query("SELECT * FROM users WHERE name = '".concat(username, "'"), function _callee(err, result) {
-    return regeneratorRuntime.async(function _callee$(_context) {
+    return regeneratorRuntime.async(function _callee$(_context2) {
       while (1) {
-        switch (_context.prev = _context.next) {
+        switch (_context2.prev = _context2.next) {
           case 0:
             if (err) {
               console.log(err);
@@ -1302,7 +1377,7 @@ app.post("/login", function (req, res) {
 
           case 1:
           case "end":
-            return _context.stop();
+            return _context2.stop();
         }
       }
     });
@@ -1311,9 +1386,9 @@ app.post("/login", function (req, res) {
 
 app.post("/signup", function _callee2(req, res) {
   var username, password, password2, sessionid, hashedPassword;
-  return regeneratorRuntime.async(function _callee2$(_context2) {
+  return regeneratorRuntime.async(function _callee2$(_context3) {
     while (1) {
-      switch (_context2.prev = _context2.next) {
+      switch (_context3.prev = _context3.next) {
         case 0:
           username = req.body.uname;
           password = req.body.pword;
@@ -1321,20 +1396,20 @@ app.post("/signup", function _callee2(req, res) {
           sessionid = req.session.id;
 
           if (!(!username || !password || !password2 || password !== password2 || password.length < 8)) {
-            _context2.next = 8;
+            _context3.next = 8;
             break;
           }
 
           res.redirect("/?error=invalid-signup");
-          _context2.next = 12;
+          _context3.next = 12;
           break;
 
         case 8:
-          _context2.next = 10;
+          _context3.next = 10;
           return regeneratorRuntime.awrap(bcrypt.hash(password, 10));
 
         case 10:
-          hashedPassword = _context2.sent;
+          hashedPassword = _context3.sent;
           pool.query("SELECT * FROM users WHERE name = '".concat(username, "'"), function (err, result) {
             if (err) {
               console.log(err);
@@ -1366,7 +1441,7 @@ app.post("/signup", function _callee2(req, res) {
 
         case 12:
         case "end":
-          return _context2.stop();
+          return _context3.stop();
       }
     }
   });
@@ -1421,9 +1496,9 @@ io.on('connection', function (socket) {
   users[socket.id] = socket;
   console.log(rooms);
   socket.on("getRooms", function _callee3(data) {
-    return regeneratorRuntime.async(function _callee3$(_context3) {
+    return regeneratorRuntime.async(function _callee3$(_context4) {
       while (1) {
-        switch (_context3.prev = _context3.next) {
+        switch (_context4.prev = _context4.next) {
           case 0:
             pool.query('SELECT * FROM rooms ORDER BY id', function (err, result) {
               if (err) {
@@ -1467,7 +1542,7 @@ io.on('connection', function (socket) {
 
           case 2:
           case "end":
-            return _context3.stop();
+            return _context4.stop();
         }
       }
     });
@@ -1543,9 +1618,9 @@ io.on('connection', function (socket) {
     });
   });
   socket.on("isAdmin", function _callee4(data) {
-    return regeneratorRuntime.async(function _callee4$(_context4) {
+    return regeneratorRuntime.async(function _callee4$(_context5) {
       while (1) {
-        switch (_context4.prev = _context4.next) {
+        switch (_context5.prev = _context5.next) {
           case 0:
             pool.query("SELECT * FROM users WHERE name = '".concat(data.uname, "' AND sessionid = '").concat(socket.sessionid, "'"), function (err, result) {
               if (err) {
@@ -1563,7 +1638,7 @@ io.on('connection', function (socket) {
 
           case 1:
           case "end":
-            return _context4.stop();
+            return _context5.stop();
         }
       }
     });
@@ -1712,104 +1787,104 @@ io.on('connection', function (socket) {
   });
   socket.on("addUser", function _callee6(data) {
     var permitted;
-    return regeneratorRuntime.async(function _callee6$(_context6) {
+    return regeneratorRuntime.async(function _callee6$(_context7) {
       while (1) {
-        switch (_context6.prev = _context6.next) {
+        switch (_context7.prev = _context7.next) {
           case 0:
             console.log("adduser");
             permitted = false;
             pool.query("SELECT * FROM users WHERE name = '".concat(data.uname, "' AND sessionid = '").concat(socket.sessionid, "'"), function _callee5(err, result) {
               var hashedPassword;
-              return regeneratorRuntime.async(function _callee5$(_context5) {
+              return regeneratorRuntime.async(function _callee5$(_context6) {
                 while (1) {
-                  switch (_context5.prev = _context5.next) {
+                  switch (_context6.prev = _context6.next) {
                     case 0:
                       if (!err) {
-                        _context5.next = 4;
+                        _context6.next = 4;
                         break;
                       }
 
                       console.log(err);
-                      _context5.next = 35;
+                      _context6.next = 35;
                       break;
 
                     case 4:
                       if (!(result.rowCount > 0)) {
-                        _context5.next = 34;
+                        _context6.next = 34;
                         break;
                       }
 
                       if (!result.rows[0].roles.includes("@admin")) {
-                        _context5.next = 31;
+                        _context6.next = 31;
                         break;
                       }
 
                       permitted = true;
 
                       if (permitted) {
-                        _context5.next = 9;
+                        _context6.next = 9;
                         break;
                       }
 
-                      return _context5.abrupt("return");
+                      return _context6.abrupt("return");
 
                     case 9:
                       console.log("isadmin");
 
                       if (data) {
-                        _context5.next = 12;
+                        _context6.next = 12;
                         break;
                       }
 
-                      return _context5.abrupt("return");
+                      return _context6.abrupt("return");
 
                     case 12:
                       console.log("data");
 
                       if (!(data.name === "")) {
-                        _context5.next = 15;
+                        _context6.next = 15;
                         break;
                       }
 
-                      return _context5.abrupt("return");
+                      return _context6.abrupt("return");
 
                     case 15:
                       console.log("uname");
 
                       if (!(data.pword === "")) {
-                        _context5.next = 18;
+                        _context6.next = 18;
                         break;
                       }
 
-                      return _context5.abrupt("return");
+                      return _context6.abrupt("return");
 
                     case 18:
                       console.log("pword");
 
                       if (!(data.pword !== data.pword2)) {
-                        _context5.next = 21;
+                        _context6.next = 21;
                         break;
                       }
 
-                      return _context5.abrupt("return");
+                      return _context6.abrupt("return");
 
                     case 21:
                       console.log("pword2");
 
                       if (!(data.pword.length < 8)) {
-                        _context5.next = 24;
+                        _context6.next = 24;
                         break;
                       }
 
-                      return _context5.abrupt("return");
+                      return _context6.abrupt("return");
 
                     case 24:
                       console.log("pword length");
-                      _context5.next = 27;
+                      _context6.next = 27;
                       return regeneratorRuntime.awrap(bcrypt.hash(data.pword, 10));
 
                     case 27:
-                      hashedPassword = _context5.sent;
+                      hashedPassword = _context6.sent;
                       pool.query("SELECT * FROM users WHERE name = '".concat(data.name, "'"), function (err, result) {
                         if (err) {
                           console.log(err);
@@ -1864,14 +1939,14 @@ io.on('connection', function (socket) {
                           }
                         }
                       });
-                      _context5.next = 32;
+                      _context6.next = 32;
                       break;
 
                     case 31:
                       permitted = false;
 
                     case 32:
-                      _context5.next = 35;
+                      _context6.next = 35;
                       break;
 
                     case 34:
@@ -1879,7 +1954,7 @@ io.on('connection', function (socket) {
 
                     case 35:
                     case "end":
-                      return _context5.stop();
+                      return _context6.stop();
                   }
                 }
               });
@@ -1887,15 +1962,15 @@ io.on('connection', function (socket) {
 
           case 3:
           case "end":
-            return _context6.stop();
+            return _context7.stop();
         }
       }
     });
   });
   socket.on("roomType", function _callee7(roomName) {
-    return regeneratorRuntime.async(function _callee7$(_context7) {
+    return regeneratorRuntime.async(function _callee7$(_context8) {
       while (1) {
-        switch (_context7.prev = _context7.next) {
+        switch (_context8.prev = _context8.next) {
           case 0:
             pool.query("SELECT * FROM rooms WHERE name = '".concat(roomName, "'"), function (err, result) {
               if (err) {
@@ -1909,7 +1984,7 @@ io.on('connection', function (socket) {
 
           case 1:
           case "end":
-            return _context7.stop();
+            return _context8.stop();
         }
       }
     });
@@ -2430,8 +2505,25 @@ io.on('connection', function (socket) {
   socket.on("move", function (data) {
     if (games[socket.current_room]) games[socket.current_room].move(socket, data);
   });
-  socket.on("isWon", function () {
-    if (games[socket.current_room]) games[socket.current_room].isWon(socket);
+  socket.on("isWon", function _callee8() {
+    return regeneratorRuntime.async(function _callee8$(_context9) {
+      while (1) {
+        switch (_context9.prev = _context9.next) {
+          case 0:
+            if (!games[socket.current_room]) {
+              _context9.next = 3;
+              break;
+            }
+
+            _context9.next = 3;
+            return regeneratorRuntime.awrap(games[socket.current_room].isWon(socket));
+
+          case 3:
+          case "end":
+            return _context9.stop();
+        }
+      }
+    });
   }); // on disconnect
 
   socket.on('disconnect', function () {
