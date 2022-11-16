@@ -319,9 +319,7 @@ function () {
                   }
 
                   return;
-                }
-
-                if (_board3[row][col] % 10 > 7) {
+                } else if (_board3[row][col] % 10 > 7) {
                   console.log("overflow");
                   _board3[row][col] = socket.color * 10 + 7;
                   _board3[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + socket.toMove.value - canmove;

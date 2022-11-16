@@ -192,8 +192,7 @@ class Kake {
                                     }
                                 }
                                 return;
-                            }
-                            if (board[row][col] % 10 > 7) {
+                            } else if (board[row][col] % 10 > 7) {
                                 console.log("overflow");
                                 board[row][col] = socket.color * 10 + 7;
                                 board[socket.toMove.row][socket.toMove.col] = socket.toMove.color * 10 + socket.toMove.value - canmove;
