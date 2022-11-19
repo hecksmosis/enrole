@@ -132,6 +132,27 @@ var updateAdminStatus = function updateAdminStatus(socket, data) {
       }
     }
   });
+};
+
+var getRoles = function getRoles(socket, result) {
+  var to_send_roles = result.rows[0].roles;
+  console.log(to_send_roles);
+  pool.query("SELECT * FROM roles", function (err, res) {
+    if (err) {
+      console.log(err);
+    } else {
+      var data = [];
+
+      for (var i = 0; i < res.rows.length; i++) {
+        if (to_send_roles.includes(res.rows[i].name)) {
+          data.push(res.rows[i]);
+        }
+      }
+
+      console.log(data);
+      socket.emit("rolelist", data);
+    }
+  });
 }; // lists
 
 
@@ -144,7 +165,7 @@ pool.query("SELECT * FROM rooms ORDER BY id", function (err, res) {
     rooms = res.rows;
     rooms.forEach(function (room) {
       room.users = [];
-    }); // console.log(rooms);
+    });
   }
 });
 var games = []; // static files
@@ -391,24 +412,7 @@ io.on('connection', function (socket) {
       if (err) {
         console.log(err);
       } else {
-        var to_send_roles = result.rows[0].roles;
-        console.log(to_send_roles);
-        pool.query("SELECT * FROM roles", function (err, res) {
-          if (err) {
-            console.log(err);
-          } else {
-            var data = [];
-
-            for (var i = 0; i < res.rows.length; i++) {
-              if (to_send_roles.includes(res.rows[i].name)) {
-                data.push(res.rows[i]);
-              }
-            }
-
-            console.log(data);
-            socket.emit("rolelist", data);
-          }
-        });
+        getRoles(socket, result);
       }
     });
   });
