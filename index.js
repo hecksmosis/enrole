@@ -55,7 +55,7 @@ if (isProduction) {
 var games = [];
 
 // setup handler functions to make code more readable
-const getRooms = (socket, result) => {
+const getRoomsResponse = (socket, result) => {
     console.log("sending rooms");
     var to_send_rooms = result.rows;
     console.log(to_send_rooms);
@@ -72,21 +72,34 @@ const getRooms = (socket, result) => {
     delete users[socket.id];
 };
 
-const updateAdminStatus = (socket, data) => {
+const isAdmin = (socket, data, updateAdminStatus, updateLobby, lobby, callback, ...args) => {
     pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
         if (err) {
             console.log(err);
         } else {
             if (result.rowCount > 0) {
                 if (result.rows[0].roles.includes("@admin")) {
-                    socket.isAdmin = true;
+                    if (updateAdminStatus) socket.isAdmin = true;
+                    if (updateLobby) socket.isLobby = lobby;
+                    if (callback !== null) callback.apply(null, [socket].concat(args));
                 }
             }
         }
     });
 };
 
-const getRoles = (socket, result) => {
+const getRooms = async(socket, data) => {
+    pool.query('SELECT * FROM rooms ORDER BY id', (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            getRoomsResponse(socket, result);
+        }
+    });
+    isAdmin(socket, data, true, true, false, null);
+};
+
+const getRolesHandler = (socket, result) => {
     var to_send_roles = result.rows[0].roles;
     console.log(to_send_roles);
     pool.query("SELECT * FROM roles", (err, res) => {
@@ -105,9 +118,87 @@ const getRoles = (socket, result) => {
     });
 };
 
+const getRoles = async(socket, data) => {
+    pool.query(`SELECT * FROM users WHERE name = '${data}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            getRolesHandler(socket, result);
+        }
+    });
+};
+
+const getAllUsers = async(socket, data) => {
+    console.log("users");
+    pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            console.log("here1");
+            console.log(socket.sessionid);
+            if (result.rowCount > 0) {
+                console.log("here2");
+                if (result.rows[0].roles.includes("@admin")) {
+                    console.log(result.rows[0].roles);
+                    console.log("works");
+                }
+                if (result.rows[0].roles.includes("@admin")) {
+                    pool.query('SELECT * FROM users', (err, result) => {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            console.log(result.rows);
+                            var users = result.rows;
+                            pool.query(`SELECT * FROM roles`, (err, res) => {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    var roles = res.rows;
+                                    socket.emit("allUsers", { users: users, roles: roles });
+                                }
+                            });
+                        }
+                    });
+                }
+            } else {
+                socket.emit("refresh");
+            }
+        }
+    });
+};
+
+const deleteUser = async(socket, data) => {
+    pool.query(`DELETE FROM users WHERE name = '${data.user}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            console.log("user deleted");
+            pool.query(`SELECT * FROM users ORDER BY id`, (err, result) => {
+                if (err) {
+                    console.log(err);
+                } else {
+                    console.log(result.rows);
+                    var users = result.rows;
+                    pool.query(`SELECT * FROM roles ORDER BY id`, (err, res) => {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            var roles = res.rows;
+                            socket.emit("allUsers", { users: users, roles: roles });
+                            socket.emit("success", "User deleted.");
+                        }
+                    });
+                }
+            });
+        }
+    });
+};
+
 // lists
 var users = [];
 var rooms = [];
+
+// populate rooms list with rooms from database
 pool.query(`SELECT * FROM rooms ORDER BY id`, (err, res) => {
     if (err) {
         console.log(err);
@@ -317,120 +408,11 @@ io.on('connection', function(socket) {
 
     console.log(rooms);
 
-    socket.on("getRooms", async function(data) {
-        pool.query('SELECT * FROM rooms ORDER BY id', (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                getRooms(socket, result);
-            }
-        });
-        updateAdminStatus(socket, data);
-    });
-
-    socket.on("getRoles", function(data) {
-        pool.query(`SELECT * FROM users WHERE name = '${data}'`, (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                getRoles(socket, result);
-            }
-        });
-    });
-
-    socket.on("getAllUsers", function(data) {
-        console.log("users");
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                console.log("here1");
-                console.log(socket.sessionid);
-                if (result.rowCount > 0) {
-                    console.log("here2");
-                    if (result.rows[0].roles.includes("@admin")) {
-                        console.log(result.rows[0].roles);
-                        console.log("works");
-                    }
-                    if (result.rows[0].roles.includes("@admin")) {
-                        pool.query('SELECT * FROM users', (err, result) => {
-                            if (err) {
-                                console.log(err);
-                            } else {
-                                console.log(result.rows);
-                                var users = result.rows;
-                                pool.query(`SELECT * FROM roles`, (err, res) => {
-                                    if (err) {
-                                        console.log(err);
-                                    } else {
-                                        var roles = res.rows;
-                                        socket.emit("allUsers", { users: users, roles: roles });
-                                    }
-                                });
-                            }
-                        });
-                    }
-                } else {
-                    socket.emit("refresh");
-                }
-            }
-        });
-    });
-
-    socket.on("isAdmin", async function(data) {
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                if (result.rowCount > 0) {
-                    if (result.rows[0].roles.includes("@admin")) {
-                        socket.isAdmin = true;
-                        socket.isLobby = false;
-                        console.log("is admin");
-                    }
-                }
-            }
-        });
-    });
-
-    socket.on("deleteUser", function(data) {
-        console.log("deleting user: " + data.user);
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                if (result.rowCount > 0) {
-                    if (result.rows[0].roles.includes("@admin")) {
-                        console.log("delete user");
-                        pool.query(`DELETE FROM users WHERE name = '${data.user}'`, (err, result) => {
-                            if (err) {
-                                console.log(err);
-                            } else {
-                                console.log("user deleted");
-                                pool.query(`SELECT * FROM users ORDER BY id`, (err, result) => {
-                                    if (err) {
-                                        console.log(err);
-                                    } else {
-                                        console.log(result.rows);
-                                        var users = result.rows;
-                                        pool.query(`SELECT * FROM roles ORDER BY id`, (err, res) => {
-                                            if (err) {
-                                                console.log(err);
-                                            } else {
-                                                var roles = res.rows;
-                                                socket.emit("allUsers", { users: users, roles: roles });
-                                                socket.emit("success", "User deleted.");
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        });
-                    }
-                }
-            }
-        });
-    });
+    socket.on("getRooms", data => getRooms(socket, data));
+    socket.on("getRoles", data => getRoles(socket, data));
+    socket.on("getAllUsers", data => getAllUsers(socket, data));
+    socket.on("isAdmin", data => isAdmin(socket, data, true, true, false, null));
+    socket.on("deleteUser", data => isAdmin(socket, data, false, false, false, deleteUser, data));
 
     socket.on("deleteRoom", function(data) {
         console.log("deleting room: " + data.name);
