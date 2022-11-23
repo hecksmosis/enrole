@@ -40,25 +40,22 @@ var cookie = require('cookie');
 var crypto = require('crypto'); // functions file
 
 
-var _require3 = require('./kake/helpers'),
-    initialSetup = _require3.initialSetup;
+var _require3 = require('./kake/kake'),
+    Kake = _require3.Kake;
 
-var _require4 = require('./kake/kake'),
-    Kake = _require4.Kake;
-
-var _require5 = require('./dnd/main'),
-    GameState = _require5.GameState; // file imports
+var _require4 = require('./dnd/main'),
+    GameState = _require4.GameState; // file imports
 
 
-var _require6 = require("./dnd/dnd.js"),
-    classList = _require6.classList,
-    weapons = _require6.weapons,
-    Weapon = _require6.Weapon,
-    armors = _require6.armors,
-    Armor = _require6.Armor,
-    packs = _require6.packs,
-    Pack = _require6.Pack,
-    Item = _require6.Item; // prototypes setup
+var _require5 = require("./dnd/dnd.js"),
+    classList = _require5.classList,
+    weapons = _require5.weapons,
+    Weapon = _require5.Weapon,
+    armors = _require5.armors,
+    Armor = _require5.Armor,
+    packs = _require5.packs,
+    Pack = _require5.Pack,
+    Item = _require5.Item; // prototypes setup
 
 
 Array.prototype.random = function () {
@@ -66,14 +63,14 @@ Array.prototype.random = function () {
 }; // postgresql setup
 
 
-var _require7 = require('pg'),
-    Pool = _require7.Pool;
+var _require6 = require('pg'),
+    Pool = _require6.Pool;
 
-var _require8 = require('process'),
-    getMaxListeners = _require8.getMaxListeners;
+var _require7 = require('process'),
+    getMaxListeners = _require7.getMaxListeners;
 
-var _require9 = require('console'),
-    Console = _require9.Console;
+var _require8 = require('console'),
+    Console = _require8.Console;
 
 var isProduction = process.env.NODE_ENV === 'production';
 console.log(isProduction);

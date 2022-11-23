@@ -1,3 +1,5 @@
+const { initialSetup } = require('./kake/helpers');
+
 class Kake {
     constructor(room) {
         this.room = room;

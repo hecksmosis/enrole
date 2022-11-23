@@ -16,7 +16,6 @@ const cookie = require('cookie');
 const crypto = require('crypto');
 
 // functions file
-const { initialSetup } = require('./kake/helpers');
 const { Kake } = require('./kake/kake');
 const { GameState } = require('./dnd/main');
 
