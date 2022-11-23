@@ -1,4 +1,4 @@
-const { initialSetup } = require('./kake/helpers');
+const { initialSetup } = require('./helpers');
 
 class Kake {
     constructor(room) {
