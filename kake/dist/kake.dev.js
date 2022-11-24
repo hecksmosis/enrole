@@ -88,7 +88,7 @@ function () {
     }
   }, {
     key: "move",
-    value: function move(socket, _ref) {
+    value: function move(io, users, games, socket, _ref) {
       var col = _ref.col,
           row = _ref.row,
           isChecker = _ref.isChecker,
@@ -102,7 +102,7 @@ function () {
 
         this.getJewels(socket, board); // get other player's jewels
 
-        var otherPlayer = this.getOtherPlayer(socket);
+        var otherPlayer = this.getOtherPlayer(io, users, socket);
         otherPlayer.jewels = [];
         var otherPlayerBoard = this.showBoard(otherPlayer);
         this.getJewels(otherPlayer, otherPlayerBoard);
@@ -806,7 +806,7 @@ function () {
     }
   }, {
     key: "getOtherPlayer",
-    value: function getOtherPlayer(socket) {
+    value: function getOtherPlayer(io, users, socket) {
       var _iteratorNormalCompletion13 = true;
       var _didIteratorError13 = false;
       var _iteratorError13 = undefined;
@@ -861,7 +861,7 @@ function () {
     }
   }, {
     key: "isWon",
-    value: function isWon(socket) {
+    value: function isWon(io, users, socket) {
       var counter, i, j, place, seldigit, digit, win_username, _iteratorNormalCompletion15, _didIteratorError15, _iteratorError15, _iterator15, _step15, sroom, _iteratorNormalCompletion16, _didIteratorError16, _iteratorError16, _iterator16, _step16, ssocket;
 
       return regeneratorRuntime.async(function isWon$(_context) {
@@ -897,7 +897,7 @@ function () {
               }
 
               // i win
-              win_username = this.getOtherPlayer(socket).username;
+              win_username = this.getOtherPlayer(io, users, socket).username;
               _iteratorNormalCompletion15 = true;
               _didIteratorError15 = false;
               _iteratorError15 = undefined;

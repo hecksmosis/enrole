@@ -2,7 +2,7 @@ const socket = io();
 
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
-var ctx, game, board;
+var canvas, ctx, game, board;
 const W = 400,
     H = 400,
     R = 22;
@@ -55,7 +55,7 @@ socket.on("test", function(data) {
     const turn = data.turn === 1 ? "red" : "blue";
     const turnItem = document.getElementById("turn");
     turnItem.innerText = turn;
-    waitText.innerText = `A player has connected! The game has started.`;
+    waitText.innerText = `Player ${data.opponentName} has connected! The game has started.`;
     const login = document.getElementById("username");
     login.innerText = data.username;
 });
@@ -80,7 +80,7 @@ socket.on("ok", function({ data, color }) {
     container.style.display = "flex";
     const hol = document.getElementById("hide-on-lobby");
     hol.style.display = "flex";
-    var canvas = document.getElementById("gc");
+    canvas = document.getElementById("gc");
     console.log("canvas: " + canvas);
     ctx = canvas.getContext("2d");
     console.log("game object created");
@@ -169,10 +169,22 @@ function clear(ctx) {
     ctx.clearRect(0, 0, W, H);
 }
 
+function getMousePos(canvas, evt) {
+    var rect = canvas.getBoundingClientRect(), // abs. size of element
+        scaleX = canvas.width / rect.width, // relationship bitmap vs. element for x
+        scaleY = canvas.height / rect.height; // relationship bitmap vs. element for y
+
+    console.log("x, y: " + (evt.clientX - rect.left) * scaleX + ", " + (evt.clientY - rect.top) * scaleY);
+
+    return {
+        x: (evt.clientX - rect.left) * scaleX, // scale mouse coordinates after they have
+        y: (evt.clientY - rect.top) * scaleY // been adjusted to be relative to element
+    };
+}
+
 function handleClick(e) {
     var evt = e ? e : window.event;
-    clickX = evt.clientX - offsetX;
-    clickY = evt.clientY - offsetY;
+    var { x: clickX, y: clickY } = getMousePos(canvas, evt);
     // get checker that has been clicked
     var { x, y, c } = getChecker(clickX, clickY);
     // get checker's row and column
@@ -190,6 +202,7 @@ function handleClick(e) {
 }
 
 function getChecker(x, y) {
+    console.log(board, ". x: ", x, " y: ", y);
     for (var i = 0; i < 8; i++) {
         for (var j = 0; j < 8; j++) {
             if (Math.floor(board[i][j] / 10) === 1) {

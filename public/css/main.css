@@ -275,3 +275,28 @@ body {
 #hide-on-lobby {
     display: none;
 }
+
+.kake-wait-notif {
+    margin: 5px 10px;
+    background-color: var(--dark-color-b);
+    color: #fff;
+    padding: 10px;
+    border: 2px solid #777;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.kake-board-container {
+    display: none;
+    width: 450px;
+    height: 450px;
+    background: #000;
+    margin: 30px auto;
+    padding: 5px;
+    overflow: hidden;
+    border: 1px solid #ccc;
+}
+
+.kake-board-canvas {
+    z-index: 9999;
+}

@@ -296,6 +296,39 @@ var deleteUser = function deleteUser(socket, data) {
       }
     }
   });
+};
+
+var deleteRoom = function deleteRoom(socket, data) {
+  return regeneratorRuntime.async(function deleteRoom$(_context5) {
+    while (1) {
+      switch (_context5.prev = _context5.next) {
+        case 0:
+          pool.query("DELETE FROM rooms WHERE name = '".concat(data.name, "'"), function (err, result) {
+            if (err) {
+              console.log(err);
+            } else {
+              console.log("room deleted");
+              pool.query('SELECT * FROM rooms', function (err, result) {
+                if (err) {
+                  console.log(err);
+                } else {
+                  console.log(result.rows);
+                  var rooms = result.rows;
+                  socket.emit("rooms", {
+                    rooms: rooms,
+                    noroles: true
+                  });
+                }
+              });
+            }
+          });
+
+        case 1:
+        case "end":
+          return _context5.stop();
+      }
+    }
+  });
 }; // lists
 
 
@@ -385,9 +418,9 @@ app.post("/login", function (req, res) {
   }
 
   pool.query("SELECT * FROM users WHERE name = '".concat(username, "'"), function _callee(err, result) {
-    return regeneratorRuntime.async(function _callee$(_context5) {
+    return regeneratorRuntime.async(function _callee$(_context6) {
       while (1) {
-        switch (_context5.prev = _context5.next) {
+        switch (_context6.prev = _context6.next) {
           case 0:
             if (err) {
               console.log(err);
@@ -412,7 +445,7 @@ app.post("/login", function (req, res) {
 
           case 1:
           case "end":
-            return _context5.stop();
+            return _context6.stop();
         }
       }
     });
@@ -421,9 +454,9 @@ app.post("/login", function (req, res) {
 
 app.post("/signup", function _callee2(req, res) {
   var username, password, password2, sessionid, hashedPassword;
-  return regeneratorRuntime.async(function _callee2$(_context6) {
+  return regeneratorRuntime.async(function _callee2$(_context7) {
     while (1) {
-      switch (_context6.prev = _context6.next) {
+      switch (_context7.prev = _context7.next) {
         case 0:
           username = req.body.uname;
           password = req.body.pword;
@@ -431,20 +464,20 @@ app.post("/signup", function _callee2(req, res) {
           sessionid = req.session.id;
 
           if (!(!username || !password || !password2 || password !== password2 || password.length < 8)) {
-            _context6.next = 8;
+            _context7.next = 8;
             break;
           }
 
           res.redirect("/?error=invalid-signup");
-          _context6.next = 12;
+          _context7.next = 12;
           break;
 
         case 8:
-          _context6.next = 10;
+          _context7.next = 10;
           return regeneratorRuntime.awrap(bcrypt.hash(password, 10));
 
         case 10:
-          hashedPassword = _context6.sent;
+          hashedPassword = _context7.sent;
           pool.query("SELECT * FROM users WHERE name = '".concat(username, "'"), function (err, result) {
             if (err) {
               console.log(err);
@@ -476,7 +509,7 @@ app.post("/signup", function _callee2(req, res) {
 
         case 12:
         case "end":
-          return _context6.stop();
+          return _context7.stop();
       }
     }
   });
@@ -546,37 +579,7 @@ io.on('connection', function (socket) {
     return isAdmin(socket, data, false, false, false, deleteUser, data);
   });
   socket.on("deleteRoom", function (data) {
-    console.log("deleting room: " + data.name);
-    pool.query("SELECT * FROM users WHERE name = '".concat(data.uname, "' AND sessionid = '").concat(socket.sessionid, "'"), function (err, result) {
-      if (err) {
-        console.log(err);
-      } else {
-        if (result.rowCount > 0) {
-          if (result.rows[0].roles.includes("@admin")) {
-            console.log("delete room");
-            pool.query("DELETE FROM rooms WHERE name = '".concat(data.name, "'"), function (err, result) {
-              if (err) {
-                console.log(err);
-              } else {
-                console.log("room deleted");
-                pool.query('SELECT * FROM rooms', function (err, result) {
-                  if (err) {
-                    console.log(err);
-                  } else {
-                    console.log(result.rows);
-                    var rooms = result.rows;
-                    socket.emit("rooms", {
-                      rooms: rooms,
-                      noroles: true
-                    });
-                  }
-                });
-              }
-            });
-          }
-        }
-      }
-    });
+    return isAdmin(socket, data, false, false, false, deleteRoom, data);
   });
   socket.on("addRoom", function (data) {
     console.log("adding room");
@@ -648,104 +651,104 @@ io.on('connection', function (socket) {
   });
   socket.on("addUser", function _callee4(data) {
     var permitted;
-    return regeneratorRuntime.async(function _callee4$(_context8) {
+    return regeneratorRuntime.async(function _callee4$(_context9) {
       while (1) {
-        switch (_context8.prev = _context8.next) {
+        switch (_context9.prev = _context9.next) {
           case 0:
             console.log("adduser");
             permitted = false;
             pool.query("SELECT * FROM users WHERE name = '".concat(data.uname, "' AND sessionid = '").concat(socket.sessionid, "'"), function _callee3(err, result) {
               var hashedPassword;
-              return regeneratorRuntime.async(function _callee3$(_context7) {
+              return regeneratorRuntime.async(function _callee3$(_context8) {
                 while (1) {
-                  switch (_context7.prev = _context7.next) {
+                  switch (_context8.prev = _context8.next) {
                     case 0:
                       if (!err) {
-                        _context7.next = 4;
+                        _context8.next = 4;
                         break;
                       }
 
                       console.log(err);
-                      _context7.next = 35;
+                      _context8.next = 35;
                       break;
 
                     case 4:
                       if (!(result.rowCount > 0)) {
-                        _context7.next = 34;
+                        _context8.next = 34;
                         break;
                       }
 
                       if (!result.rows[0].roles.includes("@admin")) {
-                        _context7.next = 31;
+                        _context8.next = 31;
                         break;
                       }
 
                       permitted = true;
 
                       if (permitted) {
-                        _context7.next = 9;
+                        _context8.next = 9;
                         break;
                       }
 
-                      return _context7.abrupt("return");
+                      return _context8.abrupt("return");
 
                     case 9:
                       console.log("isadmin");
 
                       if (data) {
-                        _context7.next = 12;
+                        _context8.next = 12;
                         break;
                       }
 
-                      return _context7.abrupt("return");
+                      return _context8.abrupt("return");
 
                     case 12:
                       console.log("data");
 
                       if (!(data.name === "")) {
-                        _context7.next = 15;
+                        _context8.next = 15;
                         break;
                       }
 
-                      return _context7.abrupt("return");
+                      return _context8.abrupt("return");
 
                     case 15:
                       console.log("uname");
 
                       if (!(data.pword === "")) {
-                        _context7.next = 18;
+                        _context8.next = 18;
                         break;
                       }
 
-                      return _context7.abrupt("return");
+                      return _context8.abrupt("return");
 
                     case 18:
                       console.log("pword");
 
                       if (!(data.pword !== data.pword2)) {
-                        _context7.next = 21;
+                        _context8.next = 21;
                         break;
                       }
 
-                      return _context7.abrupt("return");
+                      return _context8.abrupt("return");
 
                     case 21:
                       console.log("pword2");
 
                       if (!(data.pword.length < 8)) {
-                        _context7.next = 24;
+                        _context8.next = 24;
                         break;
                       }
 
-                      return _context7.abrupt("return");
+                      return _context8.abrupt("return");
 
                     case 24:
                       console.log("pword length");
-                      _context7.next = 27;
+                      _context8.next = 27;
                       return regeneratorRuntime.awrap(bcrypt.hash(data.pword, 10));
 
                     case 27:
-                      hashedPassword = _context7.sent;
+                      hashedPassword = _context8.sent;
                       pool.query("SELECT * FROM users WHERE name = '".concat(data.name, "'"), function (err, result) {
                         if (err) {
                           console.log(err);
@@ -800,14 +803,14 @@ io.on('connection', function (socket) {
                           }
                         }
                       });
-                      _context7.next = 32;
+                      _context8.next = 32;
                       break;
 
                     case 31:
                       permitted = false;
 
                     case 32:
-                      _context7.next = 35;
+                      _context8.next = 35;
                       break;
 
                     case 34:
@@ -815,7 +818,7 @@ io.on('connection', function (socket) {
 
                     case 35:
                     case "end":
-                      return _context7.stop();
+                      return _context8.stop();
                   }
                 }
               });
@@ -823,15 +826,15 @@ io.on('connection', function (socket) {
 
           case 3:
           case "end":
-            return _context8.stop();
+            return _context9.stop();
         }
       }
     });
   });
   socket.on("roomType", function _callee5(roomName) {
-    return regeneratorRuntime.async(function _callee5$(_context9) {
+    return regeneratorRuntime.async(function _callee5$(_context10) {
       while (1) {
-        switch (_context9.prev = _context9.next) {
+        switch (_context10.prev = _context10.next) {
           case 0:
             pool.query("SELECT * FROM rooms WHERE name = '".concat(roomName, "'"), function (err, result) {
               if (err) {
@@ -845,7 +848,7 @@ io.on('connection', function (socket) {
 
           case 1:
           case "end":
-            return _context9.stop();
+            return _context10.stop();
         }
       }
     });
@@ -931,129 +934,90 @@ io.on('connection', function (socket) {
                       console.log("second user " + socket.username + " joined room " + room);
                       socket.color = 2;
                       socket.jewels = [];
-
-                      if (games[room] !== undefined) {
-                        delete games[room];
-                        socket.color = 1;
-                        socket.jewels = [];
-                        var othersocket;
-                        var _iteratorNormalCompletion = true;
-                        var _didIteratorError = false;
-                        var _iteratorError = undefined;
-
-                        try {
-                          for (var _iterator = io.sockets.adapter.rooms[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                            var sroom = _step.value;
-
-                            if (sroom[0] === room) {
-                              var _iteratorNormalCompletion2 = true;
-                              var _didIteratorError2 = false;
-                              var _iteratorError2 = undefined;
-
-                              try {
-                                for (var _iterator2 = sroom[1][Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                                  var ssocket = _step2.value;
-
-                                  if (ssocket !== socket.id) {
-                                    console.log("other socket");
-                                    othersocket = users[ssocket];
-                                    othersocket.color = 2;
-                                    othersocket.jewels = [];
-                                  }
-                                }
-                              } catch (err) {
-                                _didIteratorError2 = true;
-                                _iteratorError2 = err;
-                              } finally {
-                                try {
-                                  if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
-                                    _iterator2["return"]();
-                                  }
-                                } finally {
-                                  if (_didIteratorError2) {
-                                    throw _iteratorError2;
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        } catch (err) {
-                          _didIteratorError = true;
-                          _iteratorError = err;
-                        } finally {
-                          try {
-                            if (!_iteratorNormalCompletion && _iterator["return"] != null) {
-                              _iterator["return"]();
-                            }
-                          } finally {
-                            if (_didIteratorError) {
-                              throw _iteratorError;
-                            }
-                          }
-                        }
-                      }
-
-                      games[room] = new Kake(room);
-                      console.log("second");
-                      var _iteratorNormalCompletion3 = true;
-                      var _didIteratorError3 = false;
-                      var _iteratorError3 = undefined;
+                      var othersocket;
+                      var _iteratorNormalCompletion = true;
+                      var _didIteratorError = false;
+                      var _iteratorError = undefined;
 
                       try {
-                        for (var _iterator3 = io.sockets.adapter.rooms[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                          var _sroom = _step3.value;
+                        for (var _iterator = io.sockets.adapter.rooms[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                          var sroom = _step.value;
 
-                          if (_sroom[0] === room) {
-                            var _iteratorNormalCompletion4 = true;
-                            var _didIteratorError4 = false;
-                            var _iteratorError4 = undefined;
+                          if (sroom[0] === room) {
+                            var _iteratorNormalCompletion2 = true;
+                            var _didIteratorError2 = false;
+                            var _iteratorError2 = undefined;
 
                             try {
-                              for (var _iterator4 = _sroom[1][Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-                                var _ssocket = _step4.value;
-                                console.log("socket: " + _ssocket);
+                              for (var _iterator2 = sroom[1][Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                                var ssocket = _step2.value;
 
-                                users[_ssocket].emit("test", {
-                                  color: users[_ssocket].color === 1 ? "red" : "blue",
-                                  username: users[_ssocket].username,
-                                  turn: 1
-                                });
-
-                                users[_ssocket].emit("ok", {
-                                  data: games[room].showBoard(users[_ssocket]),
-                                  color: users[_ssocket].color
-                                });
+                                if (ssocket !== socket.id) {
+                                  console.log("other socket");
+                                  othersocket = users[ssocket];
+                                }
                               }
                             } catch (err) {
-                              _didIteratorError4 = true;
-                              _iteratorError4 = err;
+                              _didIteratorError2 = true;
+                              _iteratorError2 = err;
                             } finally {
                               try {
-                                if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
-                                  _iterator4["return"]();
+                                if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
+                                  _iterator2["return"]();
                                 }
                               } finally {
-                                if (_didIteratorError4) {
-                                  throw _iteratorError4;
+                                if (_didIteratorError2) {
+                                  throw _iteratorError2;
                                 }
                               }
                             }
                           }
                         }
                       } catch (err) {
-                        _didIteratorError3 = true;
-                        _iteratorError3 = err;
+                        _didIteratorError = true;
+                        _iteratorError = err;
                       } finally {
                         try {
-                          if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
-                            _iterator3["return"]();
+                          if (!_iteratorNormalCompletion && _iterator["return"] != null) {
+                            _iterator["return"]();
                           }
                         } finally {
-                          if (_didIteratorError3) {
-                            throw _iteratorError3;
+                          if (_didIteratorError) {
+                            throw _iteratorError;
                           }
                         }
                       }
+
+                      if (games[room] !== undefined) {
+                        delete games[room];
+                        socket.color = 1;
+                        socket.jewels = [];
+                        othersocket.color = 2;
+                        othersocket.jewels = [];
+                      }
+
+                      games[room] = new Kake(room);
+                      console.log("second");
+                      socket.emit("test", {
+                        color: socket.color === 1 ? "red" : "blue",
+                        username: socket.username,
+                        opponentName: othersocket.username,
+                        turn: 1
+                      });
+                      socket.emit("ok", {
+                        data: games[room].showBoard(socket),
+                        color: socket.color
+                      });
+                      othersocket.emit("test", {
+                        color: othersocket.color === 1 ? "red" : "blue",
+                        username: othersocket.username,
+                        opponentName: socket.username,
+                        turn: 1
+                      });
+                      othersocket.emit("ok", {
+                        data: games[room].showBoard(othersocket),
+                        color: othersocket.color
+                      });
                     } else if (_sel_room.users.length === 1) {
                       console.log("first user " + socket.username + " joined room " + room);
                       socket.color = 1;
@@ -1140,28 +1104,28 @@ io.on('connection', function (socket) {
     }
 
     if (data.toAdd.pack) {
-      var _iteratorNormalCompletion5 = true;
-      var _didIteratorError5 = false;
-      var _iteratorError5 = undefined;
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
 
       try {
-        for (var _iterator5 = packs.find(function (pack) {
+        for (var _iterator3 = packs.find(function (pack) {
           return pack.name === data.toAdd.pack;
-        }).items[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-          var item = _step5.value;
+        }).items[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var item = _step3.value;
           socket.player.inventory.push(new Item(item));
         }
       } catch (err) {
-        _didIteratorError5 = true;
-        _iteratorError5 = err;
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
-            _iterator5["return"]();
+          if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
+            _iterator3["return"]();
           }
         } finally {
-          if (_didIteratorError5) {
-            throw _iteratorError5;
+          if (_didIteratorError3) {
+            throw _iteratorError3;
           }
         }
       }
@@ -1180,24 +1144,24 @@ io.on('connection', function (socket) {
 
           if (Array.isArray(split_data)) {
             console.log("korrekt");
-            var _iteratorNormalCompletion6 = true;
-            var _didIteratorError6 = false;
-            var _iteratorError6 = undefined;
+            var _iteratorNormalCompletion4 = true;
+            var _didIteratorError4 = false;
+            var _iteratorError4 = undefined;
 
             try {
               var _loop = function _loop() {
-                var item = _step6.value;
+                var item = _step4.value;
                 console.log("correkt 2");
 
                 if (Array.isArray(item)) {
                   console.log("item");
-                  var _iteratorNormalCompletion7 = true;
-                  var _didIteratorError7 = false;
-                  var _iteratorError7 = undefined;
+                  var _iteratorNormalCompletion5 = true;
+                  var _didIteratorError5 = false;
+                  var _iteratorError5 = undefined;
 
                   try {
                     var _loop2 = function _loop2() {
-                      var i = _step7.value;
+                      var i = _step5.value;
                       console.log("i");
 
                       if (weapons.find(function (w) {
@@ -1224,20 +1188,20 @@ io.on('connection', function (socket) {
                       }
                     };
 
-                    for (var _iterator7 = item[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                    for (var _iterator5 = item[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
                       _loop2();
                     }
                   } catch (err) {
-                    _didIteratorError7 = true;
-                    _iteratorError7 = err;
+                    _didIteratorError5 = true;
+                    _iteratorError5 = err;
                   } finally {
                     try {
-                      if (!_iteratorNormalCompletion7 && _iterator7["return"] != null) {
-                        _iterator7["return"]();
+                      if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
+                        _iterator5["return"]();
                       }
                     } finally {
-                      if (_didIteratorError7) {
-                        throw _iteratorError7;
+                      if (_didIteratorError5) {
+                        throw _iteratorError5;
                       }
                     }
                   }
@@ -1265,20 +1229,20 @@ io.on('connection', function (socket) {
                 }
               };
 
-              for (var _iterator6 = split_data[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+              for (var _iterator4 = split_data[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
                 _loop();
               }
             } catch (err) {
-              _didIteratorError6 = true;
-              _iteratorError6 = err;
+              _didIteratorError4 = true;
+              _iteratorError4 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion6 && _iterator6["return"] != null) {
-                  _iterator6["return"]();
+                if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
+                  _iterator4["return"]();
                 }
               } finally {
-                if (_didIteratorError6) {
-                  throw _iteratorError6;
+                if (_didIteratorError4) {
+                  throw _iteratorError4;
                 }
               }
             }
@@ -1364,24 +1328,24 @@ io.on('connection', function (socket) {
     });
   });
   socket.on("move", function (data) {
-    if (games[socket.current_room]) games[socket.current_room].move(socket, data);
+    if (games[socket.current_room]) games[socket.current_room].move(io, users, games, socket, data);
   });
   socket.on("isWon", function _callee6() {
-    return regeneratorRuntime.async(function _callee6$(_context10) {
+    return regeneratorRuntime.async(function _callee6$(_context11) {
       while (1) {
-        switch (_context10.prev = _context10.next) {
+        switch (_context11.prev = _context11.next) {
           case 0:
             if (!games[socket.current_room]) {
-              _context10.next = 3;
+              _context11.next = 3;
               break;
             }
 
-            _context10.next = 3;
-            return regeneratorRuntime.awrap(games[socket.current_room].isWon(socket));
+            _context11.next = 3;
+            return regeneratorRuntime.awrap(games[socket.current_room].isWon(io, users, socket));
 
           case 3:
           case "end":
-            return _context10.stop();
+            return _context11.stop();
         }
       }
     });

@@ -63,7 +63,7 @@ class Kake {
         }
     }
 
-    move(socket, { col, row, isChecker, color }) {
+    move(io, users, games, socket, { col, row, isChecker, color }) {
         if (this.turn === socket.color) {
             io.to(this.room).emit("isWon");
             let board = this.showBoard(socket);
@@ -74,7 +74,7 @@ class Kake {
             this.getJewels(socket, board);
 
             // get other player's jewels
-            let otherPlayer = this.getOtherPlayer(socket);
+            let otherPlayer = this.getOtherPlayer(io, users, socket);
             otherPlayer.jewels = [];
             let otherPlayerBoard = this.showBoard(otherPlayer);
             this.getJewels(otherPlayer, otherPlayerBoard);
@@ -422,7 +422,7 @@ class Kake {
         }
     }
 
-    getOtherPlayer(socket) {
+    getOtherPlayer(io, users, socket) {
         for (let sroom of io.sockets.adapter.rooms) {
             if (sroom[0] === this.room) {
                 for (let ssocket of sroom[1]) {
@@ -434,7 +434,7 @@ class Kake {
         }
     }
 
-    async isWon(socket) {
+    async isWon(io, users, socket) {
         console.log("chekin if geim is guon, color: " + socket.color);
 
         let counter = 0;
@@ -463,7 +463,7 @@ class Kake {
 
         if (socket.jewels.length === counter) {
             // i win
-            var win_username = this.getOtherPlayer(socket).username;
+            var win_username = this.getOtherPlayer(io, users, socket).username;
             for (let sroom of io.sockets.adapter.rooms) {
                 if (sroom[0] === this.room) {
                     for (let ssocket of sroom[1]) {

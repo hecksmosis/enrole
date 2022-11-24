@@ -193,6 +193,25 @@ const deleteUser = async(socket, data) => {
     });
 };
 
+const deleteRoom = async(socket, data) => {
+    pool.query(`DELETE FROM rooms WHERE name = '${data.name}'`, (err, result) => {
+        if (err) {
+            console.log(err);
+        } else {
+            console.log("room deleted");
+            pool.query('SELECT * FROM rooms', (err, result) => {
+                if (err) {
+                    console.log(err);
+                } else {
+                    console.log(result.rows);
+                    var rooms = result.rows;
+                    socket.emit("rooms", { rooms: rooms, noroles: true });
+                }
+            });
+        }
+    });
+};
+
 // lists
 var users = [];
 var rooms = [];
@@ -412,37 +431,7 @@ io.on('connection', function(socket) {
     socket.on("getAllUsers", data => getAllUsers(socket, data));
     socket.on("isAdmin", data => isAdmin(socket, data, true, true, false, null));
     socket.on("deleteUser", data => isAdmin(socket, data, false, false, false, deleteUser, data));
-
-    socket.on("deleteRoom", function(data) {
-        console.log("deleting room: " + data.name);
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                if (result.rowCount > 0) {
-                    if (result.rows[0].roles.includes("@admin")) {
-                        console.log("delete room");
-                        pool.query(`DELETE FROM rooms WHERE name = '${data.name}'`, (err, result) => {
-                            if (err) {
-                                console.log(err);
-                            } else {
-                                console.log("room deleted");
-                                pool.query('SELECT * FROM rooms', (err, result) => {
-                                    if (err) {
-                                        console.log(err);
-                                    } else {
-                                        console.log(result.rows);
-                                        var rooms = result.rows;
-                                        socket.emit("rooms", { rooms: rooms, noroles: true });
-                                    }
-                                });
-                            }
-                        });
-                    }
-                }
-            }
-        });
-    });
+    socket.on("deleteRoom", data => isAdmin(socket, data, false, false, false, deleteRoom, data));
 
     socket.on("addRoom", function(data) {
         console.log("adding room");
@@ -690,35 +679,30 @@ io.on('connection', function(socket) {
                                             console.log("second user " + socket.username + " joined room " + room);
                                             socket.color = 2;
                                             socket.jewels = [];
-                                            if (games[room] !== undefined) {
-                                                delete games[room];
-                                                socket.color = 1;
-                                                socket.jewels = [];
-                                                let othersocket;
-                                                for (let sroom of io.sockets.adapter.rooms) {
-                                                    if (sroom[0] === room) {
-                                                        for (let ssocket of sroom[1]) {
-                                                            if (ssocket !== socket.id) {
-                                                                console.log("other socket");
-                                                                othersocket = users[ssocket];
-                                                                othersocket.color = 2;
-                                                                othersocket.jewels = [];
-                                                            }
+                                            let othersocket;
+                                            for (let sroom of io.sockets.adapter.rooms) {
+                                                if (sroom[0] === room) {
+                                                    for (let ssocket of sroom[1]) {
+                                                        if (ssocket !== socket.id) {
+                                                            console.log("other socket");
+                                                            othersocket = users[ssocket];
                                                         }
                                                     }
                                                 }
                                             }
+                                            if (games[room] !== undefined) {
+                                                delete games[room];
+                                                socket.color = 1;
+                                                socket.jewels = [];
+                                                othersocket.color = 2;
+                                                othersocket.jewels = [];
+                                            }
                                             games[room] = new Kake(room);
                                             console.log("second");
-                                            for (let sroom of io.sockets.adapter.rooms) {
-                                                if (sroom[0] === room) {
-                                                    for (let ssocket of sroom[1]) {
-                                                        console.log("socket: " + ssocket);
-                                                        users[ssocket].emit("test", { color: users[ssocket].color === 1 ? "red" : "blue", username: users[ssocket].username, turn: 1 });
-                                                        users[ssocket].emit("ok", { data: games[room].showBoard(users[ssocket]), color: users[ssocket].color });
-                                                    }
-                                                }
-                                            }
+                                            socket.emit("test", { color: socket.color === 1 ? "red" : "blue", username: socket.username, opponentName: othersocket.username, turn: 1 });
+                                            socket.emit("ok", { data: games[room].showBoard(socket), color: socket.color });
+                                            othersocket.emit("test", { color: othersocket.color === 1 ? "red" : "blue", username: othersocket.username, opponentName: socket.username, turn: 1 });
+                                            othersocket.emit("ok", { data: games[room].showBoard(othersocket), color: othersocket.color });
                                         } else if (sel_room.users.length === 1) {
                                             console.log("first user " + socket.username + " joined room " + room);
                                             socket.color = 1;
@@ -903,9 +887,9 @@ io.on('connection', function(socket) {
         socket.emit("update", { board: games[socket.current_room].showBoard(socket) });
     });
 
-    socket.on("move", function(data) { if (games[socket.current_room]) games[socket.current_room].move(socket, data); });
+    socket.on("move", function(data) { if (games[socket.current_room]) games[socket.current_room].move(io, users, games, socket, data); });
 
-    socket.on("isWon", async function() { if (games[socket.current_room]) await games[socket.current_room].isWon(socket); });
+    socket.on("isWon", async function() { if (games[socket.current_room]) await games[socket.current_room].isWon(io, users, socket); });
 
     // on disconnect
     socket.on('disconnect', function() {
