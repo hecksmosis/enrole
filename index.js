@@ -212,6 +212,58 @@ const deleteRoom = async(socket, data) => {
     });
 };
 
+const addRoom = async(socket, data) => {
+    if (!data) return;
+    if (data.name === "") return;
+
+    pool.query(
+        `SELECT * FROM rooms WHERE name = '${data.name}'`,
+        (err, result) => {
+            if (err) {
+                console.log(err);
+                socket.emit("invalidRoom", "Invalid room name.");
+            } else {
+                if (result.rowCount > 0) {
+                    socket.emit("invalidRoom", "Room already exists.");
+                } else {
+                    const type = data.type === "Chat" | "chat" ? "chat" : "game";
+                    pool.query(
+                        `INSERT INTO rooms (name, type, req_roles) VALUES ('${data.name}', '${type}', '{"${data.roles}"}')`,
+                        (err, result) => {
+                            if (err) {
+                                console.log(err);
+                                socket.emit("invalidRoom", "Invalid room type.");
+                            } else {
+                                socket.emit("success", "Room added.");
+                                rooms[rooms.length - 1].users = [];
+                                pool.query(`SELECT * FROM rooms ORDER BY id`, (err, result) => {
+                                    if (err) {
+                                        console.log(err);
+                                    } else {
+                                        io.emit("rooms", result.rows);
+                                        console.log("rooms before", rooms);
+                                        users_rooms = [];
+                                        rooms.forEach((room) => {
+                                            users_rooms.push(room.users);
+                                        });
+                                        console.log(users_rooms);
+                                        rooms = result.rows;
+                                        rooms.forEach((room) => {
+                                            room.users = users_rooms[rooms.indexOf(room)];
+                                        });
+                                        console.log("rooms after", rooms);
+                                        socket.emit("rooms", rooms);
+                                    }
+                                });
+                            }
+                        }
+                    );
+                }
+            }
+        }
+    );
+};
+
 // lists
 var users = [];
 var rooms = [];
@@ -432,82 +484,7 @@ io.on('connection', function(socket) {
     socket.on("isAdmin", data => isAdmin(socket, data, true, true, false, null));
     socket.on("deleteUser", data => isAdmin(socket, data, false, false, false, deleteUser, data));
     socket.on("deleteRoom", data => isAdmin(socket, data, false, false, false, deleteRoom, data));
-
-    socket.on("addRoom", function(data) {
-        console.log("adding room");
-        console.log(data.uname);
-        var permitted = false;
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, (err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                if (result.rowCount > 0) {
-                    // if user is admin
-                    console.log(result.rows);
-                    console.log(result.rows[0].roles.includes("@admin"));
-                    if (result.rows[0].roles.includes("@admin")) {
-                        console.log("admin");
-                        if (!data) return;
-                        console.log("data");
-                        if (data.name === "") return;
-                        console.log("passed tests");
-                        pool.query(
-                            `SELECT * FROM rooms WHERE name = '${data.name}'`,
-                            (err, result) => {
-                                if (err) {
-                                    console.log(err);
-                                    socket.emit("invalidRoom", "Invalid room name.");
-                                } else {
-                                    if (result.rowCount > 0) {
-                                        socket.emit("invalidRoom", "Room already exists.");
-                                    } else {
-                                        const type = data.type === "Chat" | "chat" ? "chat" : "game";
-                                        pool.query(
-                                            `INSERT INTO rooms (name, type, req_roles) VALUES ('${data.name}', '${type}', '{"${data.roles}"}')`,
-                                            (err, result) => {
-                                                if (err) {
-                                                    console.log(err);
-                                                    socket.emit("invalidRoom", "Invalid room type.");
-                                                } else {
-                                                    socket.emit("success", "Room added.");
-                                                    rooms[rooms.length - 1].users = [];
-                                                    pool.query(`SELECT * FROM rooms ORDER BY id`, (err, result) => {
-                                                        if (err) {
-                                                            console.log(err);
-                                                        } else {
-                                                            io.emit("rooms", result.rows);
-                                                            console.log("rooms before", rooms);
-                                                            users_rooms = [];
-                                                            rooms.forEach((room) => {
-                                                                users_rooms.push(room.users);
-                                                            });
-                                                            console.log(users_rooms);
-                                                            rooms = result.rows;
-                                                            rooms.forEach((room) => {
-                                                                room.users = users_rooms[rooms.indexOf(room)];
-                                                            });
-                                                            console.log("rooms after", rooms);
-                                                            socket.emit("rooms", rooms);
-                                                        }
-                                                    });
-                                                }
-                                            }
-                                        );
-                                    }
-                                }
-                            }
-                        );
-                    } else {
-                        permitted = false;
-                    }
-                } else {
-                    permitted = false;
-                }
-            }
-        });
-
-
-    });
+    socket.on("addRoom", data => isAdmin(socket, data, false, false, false, addRoom, data));
 
     socket.on("addUser", async function(data) {
         console.log("adduser");
