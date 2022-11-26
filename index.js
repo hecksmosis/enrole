@@ -5,10 +5,8 @@ const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const port = process.env.PORT || 3000;
-const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
-const { createReadStream } = require('fs');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const flash = require('express-flash');
@@ -29,8 +27,6 @@ Array.prototype.random = function() {
 
 // postgresql setup
 const { Pool } = require('pg');
-const { getMaxListeners } = require('process');
-const { Console } = require('console');
 const isProduction = process.env.NODE_ENV === 'production';
 console.log(isProduction);
 var pool;
@@ -264,6 +260,78 @@ const addRoom = async(socket, data) => {
     );
 };
 
+const addUser = async(socket, data) => {
+    if (!data) return;
+    console.log("data");
+    if (data.name === "") return;
+    console.log("uname");
+    if (data.pword === "") return;
+    console.log("pword");
+    if (data.pword !== data.pword2) return;
+    console.log("pword2");
+    if (data.pword.length < 8) return;
+    console.log("pword length");
+    const hashedPassword = await bcrypt.hash(data.pword, 10);
+    pool.query(
+        `SELECT * FROM users WHERE name = '${data.name}'`,
+        (err, result) => {
+            if (err) {
+                console.log(err);
+                socket.emit("invalidUser", "Invalid user name.");
+            } else {
+                if (result.rowCount > 0) {
+                    socket.emit("invalidUser", "User already exists.");
+                } else {
+                    if (!data.roles) {
+                        pool.query(
+                            `INSERT INTO users (name, password, roles) VALUES ('${data.name}', '${hashedPassword}', '{"@basic"}')`,
+                            (err, result) => {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    socket.emit("success", "User added.");
+                                }
+                            }
+                        );
+                    } else {
+                        var roles = data.roles.toString().split(",");
+                        var rolesString = "{";
+                        for (var i = 0; i < roles.length; i++) {
+                            rolesString += `"${roles[i]}",`;
+                        }
+                        pool.query(
+                            `INSERT INTO users (name, password, roles) VALUES ('${data.name}', '${hashedPassword}', '${data.roles}')`,
+                            (err, result) => {
+                                if (err) {
+                                    console.log(err);
+                                } else {
+                                    socket.emit("success", "User added.");
+                                    pool.query('SELECT * FROM users', (err, result) => {
+                                        if (err) {
+                                            console.log(err);
+                                        } else {
+                                            console.log(result.rows);
+                                            var users = result.rows;
+                                            pool.query(`SELECT * FROM roles`, (err, res) => {
+                                                if (err) {
+                                                    console.log(err);
+                                                } else {
+                                                    var roles = res.rows;
+                                                    socket.emit("allUsers", { users: users, roles: roles });
+                                                }
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        );
+                    }
+                }
+            }
+        }
+    );
+};
+
 // lists
 var users = [];
 var rooms = [];
@@ -485,99 +553,7 @@ io.on('connection', function(socket) {
     socket.on("deleteUser", data => isAdmin(socket, data, false, false, false, deleteUser, data));
     socket.on("deleteRoom", data => isAdmin(socket, data, false, false, false, deleteRoom, data));
     socket.on("addRoom", data => isAdmin(socket, data, false, false, false, addRoom, data));
-
-    socket.on("addUser", async function(data) {
-        console.log("adduser");
-        var permitted = false;
-        pool.query(`SELECT * FROM users WHERE name = '${data.uname}' AND sessionid = '${socket.sessionid}'`, async(err, result) => {
-            if (err) {
-                console.log(err);
-            } else {
-                if (result.rowCount > 0) {
-                    // if user is admin
-                    if (result.rows[0].roles.includes("@admin")) {
-                        permitted = true;
-                        if (!permitted) return;
-                        console.log("isadmin");
-                        if (!data) return;
-                        console.log("data");
-                        if (data.name === "") return;
-                        console.log("uname");
-                        if (data.pword === "") return;
-                        console.log("pword");
-                        if (data.pword !== data.pword2) return;
-                        console.log("pword2");
-                        if (data.pword.length < 8) return;
-                        console.log("pword length");
-                        const hashedPassword = await bcrypt.hash(data.pword, 10);
-                        pool.query(
-                            `SELECT * FROM users WHERE name = '${data.name}'`,
-                            (err, result) => {
-                                if (err) {
-                                    console.log(err);
-                                    socket.emit("invalidUser", "Invalid user name.");
-                                } else {
-                                    if (result.rowCount > 0) {
-                                        socket.emit("invalidUser", "User already exists.");
-                                    } else {
-                                        if (!data.roles) {
-                                            pool.query(
-                                                `INSERT INTO users (name, password, roles) VALUES ('${data.name}', '${hashedPassword}', '{"@basic"}')`,
-                                                (err, result) => {
-                                                    if (err) {
-                                                        console.log(err);
-                                                    } else {
-                                                        socket.emit("success", "User added.");
-                                                    }
-                                                }
-                                            );
-                                        } else {
-                                            var roles = data.roles.toString().split(",");
-                                            var rolesString = "{";
-                                            for (var i = 0; i < roles.length; i++) {
-                                                rolesString += `"${roles[i]}",`;
-                                            }
-                                            pool.query(
-                                                `INSERT INTO users (name, password, roles) VALUES ('${data.name}', '${hashedPassword}', '${data.roles}')`,
-                                                (err, result) => {
-                                                    if (err) {
-                                                        console.log(err);
-                                                    } else {
-                                                        socket.emit("success", "User added.");
-                                                        pool.query('SELECT * FROM users', (err, result) => {
-                                                            if (err) {
-                                                                console.log(err);
-                                                            } else {
-                                                                console.log(result.rows);
-                                                                var users = result.rows;
-                                                                pool.query(`SELECT * FROM roles`, (err, res) => {
-                                                                    if (err) {
-                                                                        console.log(err);
-                                                                    } else {
-                                                                        var roles = res.rows;
-                                                                        socket.emit("allUsers", { users: users, roles: roles });
-                                                                    }
-                                                                });
-                                                            }
-                                                        });
-                                                    }
-                                                }
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        );
-                    } else {
-                        permitted = false;
-                    }
-                } else {
-                    permitted = false;
-                }
-            }
-        });
-
-    });
+    socket.on("addUser", data => isAdmin(socket, data, false, false, false, addUser, data));
 
     socket.on("roomType", async function(roomName) {
         pool.query(`SELECT * FROM rooms WHERE name = '${roomName}'`, (err, result) => {

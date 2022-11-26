@@ -20,14 +20,9 @@ var io = require('socket.io')(http);
 
 var port = process.env.PORT || 3000;
 
-var fs = require('fs');
-
 var cookieParser = require('cookie-parser');
 
 var bodyParser = require('body-parser');
-
-var _require2 = require('fs'),
-    createReadStream = _require2.createReadStream;
 
 var bcrypt = require('bcrypt');
 
@@ -40,22 +35,22 @@ var cookie = require('cookie');
 var crypto = require('crypto'); // functions file
 
 
-var _require3 = require('./kake/kake'),
-    Kake = _require3.Kake;
+var _require2 = require('./kake/kake'),
+    Kake = _require2.Kake;
 
-var _require4 = require('./dnd/main'),
-    GameState = _require4.GameState; // file imports
+var _require3 = require('./dnd/main'),
+    GameState = _require3.GameState; // file imports
 
 
-var _require5 = require("./dnd/dnd.js"),
-    classList = _require5.classList,
-    weapons = _require5.weapons,
-    Weapon = _require5.Weapon,
-    armors = _require5.armors,
-    Armor = _require5.Armor,
-    packs = _require5.packs,
-    Pack = _require5.Pack,
-    Item = _require5.Item; // prototypes setup
+var _require4 = require("./dnd/dnd.js"),
+    classList = _require4.classList,
+    weapons = _require4.weapons,
+    Weapon = _require4.Weapon,
+    armors = _require4.armors,
+    Armor = _require4.Armor,
+    packs = _require4.packs,
+    Pack = _require4.Pack,
+    Item = _require4.Item; // prototypes setup
 
 
 Array.prototype.random = function () {
@@ -63,14 +58,8 @@ Array.prototype.random = function () {
 }; // postgresql setup
 
 
-var _require6 = require('pg'),
-    Pool = _require6.Pool;
-
-var _require7 = require('process'),
-    getMaxListeners = _require7.getMaxListeners;
-
-var _require8 = require('console'),
-    Console = _require8.Console;
+var _require5 = require('pg'),
+    Pool = _require5.Pool;
 
 var isProduction = process.env.NODE_ENV === 'production';
 console.log(isProduction);
@@ -399,6 +388,129 @@ var addRoom = function addRoom(socket, data) {
       }
     }
   });
+};
+
+var addUser = function addUser(socket, data) {
+  var hashedPassword;
+  return regeneratorRuntime.async(function addUser$(_context7) {
+    while (1) {
+      switch (_context7.prev = _context7.next) {
+        case 0:
+          if (data) {
+            _context7.next = 2;
+            break;
+          }
+
+          return _context7.abrupt("return");
+
+        case 2:
+          console.log("data");
+
+          if (!(data.name === "")) {
+            _context7.next = 5;
+            break;
+          }
+
+          return _context7.abrupt("return");
+
+        case 5:
+          console.log("uname");
+
+          if (!(data.pword === "")) {
+            _context7.next = 8;
+            break;
+          }
+
+          return _context7.abrupt("return");
+
+        case 8:
+          console.log("pword");
+
+          if (!(data.pword !== data.pword2)) {
+            _context7.next = 11;
+            break;
+          }
+
+          return _context7.abrupt("return");
+
+        case 11:
+          console.log("pword2");
+
+          if (!(data.pword.length < 8)) {
+            _context7.next = 14;
+            break;
+          }
+
+          return _context7.abrupt("return");
+
+        case 14:
+          console.log("pword length");
+          _context7.next = 17;
+          return regeneratorRuntime.awrap(bcrypt.hash(data.pword, 10));
+
+        case 17:
+          hashedPassword = _context7.sent;
+          pool.query("SELECT * FROM users WHERE name = '".concat(data.name, "'"), function (err, result) {
+            if (err) {
+              console.log(err);
+              socket.emit("invalidUser", "Invalid user name.");
+            } else {
+              if (result.rowCount > 0) {
+                socket.emit("invalidUser", "User already exists.");
+              } else {
+                if (!data.roles) {
+                  pool.query("INSERT INTO users (name, password, roles) VALUES ('".concat(data.name, "', '").concat(hashedPassword, "', '{\"@basic\"}')"), function (err, result) {
+                    if (err) {
+                      console.log(err);
+                    } else {
+                      socket.emit("success", "User added.");
+                    }
+                  });
+                } else {
+                  var roles = data.roles.toString().split(",");
+                  var rolesString = "{";
+
+                  for (var i = 0; i < roles.length; i++) {
+                    rolesString += "\"".concat(roles[i], "\",");
+                  }
+
+                  pool.query("INSERT INTO users (name, password, roles) VALUES ('".concat(data.name, "', '").concat(hashedPassword, "', '").concat(data.roles, "')"), function (err, result) {
+                    if (err) {
+                      console.log(err);
+                    } else {
+                      socket.emit("success", "User added.");
+                      pool.query('SELECT * FROM users', function (err, result) {
+                        if (err) {
+                          console.log(err);
+                        } else {
+                          console.log(result.rows);
+                          var users = result.rows;
+                          pool.query("SELECT * FROM roles", function (err, res) {
+                            if (err) {
+                              console.log(err);
+                            } else {
+                              var roles = res.rows;
+                              socket.emit("allUsers", {
+                                users: users,
+                                roles: roles
+                              });
+                            }
+                          });
+                        }
+                      });
+                    }
+                  });
+                }
+              }
+            }
+          });
+
+        case 19:
+        case "end":
+          return _context7.stop();
+      }
+    }
+  });
 }; // lists
 
 
@@ -488,9 +600,9 @@ app.post("/login", function (req, res) {
   }
 
   pool.query("SELECT * FROM users WHERE name = '".concat(username, "'"), function _callee(err, result) {
-    return regeneratorRuntime.async(function _callee$(_context7) {
+    return regeneratorRuntime.async(function _callee$(_context8) {
       while (1) {
-        switch (_context7.prev = _context7.next) {
+        switch (_context8.prev = _context8.next) {
           case 0:
             if (err) {
               console.log(err);
@@ -515,7 +627,7 @@ app.post("/login", function (req, res) {
 
           case 1:
           case "end":
-            return _context7.stop();
+            return _context8.stop();
         }
       }
     });
@@ -524,9 +636,9 @@ app.post("/login", function (req, res) {
 
 app.post("/signup", function _callee2(req, res) {
   var username, password, password2, sessionid, hashedPassword;
-  return regeneratorRuntime.async(function _callee2$(_context8) {
+  return regeneratorRuntime.async(function _callee2$(_context9) {
     while (1) {
-      switch (_context8.prev = _context8.next) {
+      switch (_context9.prev = _context9.next) {
         case 0:
           username = req.body.uname;
           password = req.body.pword;
@@ -534,20 +646,20 @@ app.post("/signup", function _callee2(req, res) {
           sessionid = req.session.id;
 
           if (!(!username || !password || !password2 || password !== password2 || password.length < 8)) {
-            _context8.next = 8;
+            _context9.next = 8;
             break;
           }
 
           res.redirect("/?error=invalid-signup");
-          _context8.next = 12;
+          _context9.next = 12;
           break;
 
         case 8:
-          _context8.next = 10;
+          _context9.next = 10;
           return regeneratorRuntime.awrap(bcrypt.hash(password, 10));
 
         case 10:
-          hashedPassword = _context8.sent;
+          hashedPassword = _context9.sent;
           pool.query("SELECT * FROM users WHERE name = '".concat(username, "'"), function (err, result) {
             if (err) {
               console.log(err);
@@ -579,7 +691,7 @@ app.post("/signup", function _callee2(req, res) {
 
         case 12:
         case "end":
-          return _context8.stop();
+          return _context9.stop();
       }
     }
   });
@@ -654,192 +766,13 @@ io.on('connection', function (socket) {
   socket.on("addRoom", function (data) {
     return isAdmin(socket, data, false, false, false, addRoom, data);
   });
-  socket.on("addUser", function _callee4(data) {
-    var permitted;
-    return regeneratorRuntime.async(function _callee4$(_context10) {
+  socket.on("addUser", function (data) {
+    return isAdmin(socket, data, false, false, false, addUser, data);
+  });
+  socket.on("roomType", function _callee3(roomName) {
+    return regeneratorRuntime.async(function _callee3$(_context10) {
       while (1) {
         switch (_context10.prev = _context10.next) {
-          case 0:
-            console.log("adduser");
-            permitted = false;
-            pool.query("SELECT * FROM users WHERE name = '".concat(data.uname, "' AND sessionid = '").concat(socket.sessionid, "'"), function _callee3(err, result) {
-              var hashedPassword;
-              return regeneratorRuntime.async(function _callee3$(_context9) {
-                while (1) {
-                  switch (_context9.prev = _context9.next) {
-                    case 0:
-                      if (!err) {
-                        _context9.next = 4;
-                        break;
-                      }
-
-                      console.log(err);
-                      _context9.next = 35;
-                      break;
-
-                    case 4:
-                      if (!(result.rowCount > 0)) {
-                        _context9.next = 34;
-                        break;
-                      }
-
-                      if (!result.rows[0].roles.includes("@admin")) {
-                        _context9.next = 31;
-                        break;
-                      }
-
-                      permitted = true;
-
-                      if (permitted) {
-                        _context9.next = 9;
-                        break;
-                      }
-
-                      return _context9.abrupt("return");
-
-                    case 9:
-                      console.log("isadmin");
-
-                      if (data) {
-                        _context9.next = 12;
-                        break;
-                      }
-
-                      return _context9.abrupt("return");
-
-                    case 12:
-                      console.log("data");
-
-                      if (!(data.name === "")) {
-                        _context9.next = 15;
-                        break;
-                      }
-
-                      return _context9.abrupt("return");
-
-                    case 15:
-                      console.log("uname");
-
-                      if (!(data.pword === "")) {
-                        _context9.next = 18;
-                        break;
-                      }
-
-                      return _context9.abrupt("return");
-
-                    case 18:
-                      console.log("pword");
-
-                      if (!(data.pword !== data.pword2)) {
-                        _context9.next = 21;
-                        break;
-                      }
-
-                      return _context9.abrupt("return");
-
-                    case 21:
-                      console.log("pword2");
-
-                      if (!(data.pword.length < 8)) {
-                        _context9.next = 24;
-                        break;
-                      }
-
-                      return _context9.abrupt("return");
-
-                    case 24:
-                      console.log("pword length");
-                      _context9.next = 27;
-                      return regeneratorRuntime.awrap(bcrypt.hash(data.pword, 10));
-
-                    case 27:
-                      hashedPassword = _context9.sent;
-                      pool.query("SELECT * FROM users WHERE name = '".concat(data.name, "'"), function (err, result) {
-                        if (err) {
-                          console.log(err);
-                          socket.emit("invalidUser", "Invalid user name.");
-                        } else {
-                          if (result.rowCount > 0) {
-                            socket.emit("invalidUser", "User already exists.");
-                          } else {
-                            if (!data.roles) {
-                              pool.query("INSERT INTO users (name, password, roles) VALUES ('".concat(data.name, "', '").concat(hashedPassword, "', '{\"@basic\"}')"), function (err, result) {
-                                if (err) {
-                                  console.log(err);
-                                } else {
-                                  socket.emit("success", "User added.");
-                                }
-                              });
-                            } else {
-                              var roles = data.roles.toString().split(",");
-                              var rolesString = "{";
-
-                              for (var i = 0; i < roles.length; i++) {
-                                rolesString += "\"".concat(roles[i], "\",");
-                              }
-
-                              pool.query("INSERT INTO users (name, password, roles) VALUES ('".concat(data.name, "', '").concat(hashedPassword, "', '").concat(data.roles, "')"), function (err, result) {
-                                if (err) {
-                                  console.log(err);
-                                } else {
-                                  socket.emit("success", "User added.");
-                                  pool.query('SELECT * FROM users', function (err, result) {
-                                    if (err) {
-                                      console.log(err);
-                                    } else {
-                                      console.log(result.rows);
-                                      var users = result.rows;
-                                      pool.query("SELECT * FROM roles", function (err, res) {
-                                        if (err) {
-                                          console.log(err);
-                                        } else {
-                                          var roles = res.rows;
-                                          socket.emit("allUsers", {
-                                            users: users,
-                                            roles: roles
-                                          });
-                                        }
-                                      });
-                                    }
-                                  });
-                                }
-                              });
-                            }
-                          }
-                        }
-                      });
-                      _context9.next = 32;
-                      break;
-
-                    case 31:
-                      permitted = false;
-
-                    case 32:
-                      _context9.next = 35;
-                      break;
-
-                    case 34:
-                      permitted = false;
-
-                    case 35:
-                    case "end":
-                      return _context9.stop();
-                  }
-                }
-              });
-            });
-
-          case 3:
-          case "end":
-            return _context10.stop();
-        }
-      }
-    });
-  });
-  socket.on("roomType", function _callee5(roomName) {
-    return regeneratorRuntime.async(function _callee5$(_context11) {
-      while (1) {
-        switch (_context11.prev = _context11.next) {
           case 0:
             pool.query("SELECT * FROM rooms WHERE name = '".concat(roomName, "'"), function (err, result) {
               if (err) {
@@ -853,7 +786,7 @@ io.on('connection', function (socket) {
 
           case 1:
           case "end":
-            return _context11.stop();
+            return _context10.stop();
         }
       }
     });
@@ -1335,22 +1268,22 @@ io.on('connection', function (socket) {
   socket.on("move", function (data) {
     if (games[socket.current_room]) games[socket.current_room].move(io, users, games, socket, data);
   });
-  socket.on("isWon", function _callee6() {
-    return regeneratorRuntime.async(function _callee6$(_context12) {
+  socket.on("isWon", function _callee4() {
+    return regeneratorRuntime.async(function _callee4$(_context11) {
       while (1) {
-        switch (_context12.prev = _context12.next) {
+        switch (_context11.prev = _context11.next) {
           case 0:
             if (!games[socket.current_room]) {
-              _context12.next = 3;
+              _context11.next = 3;
               break;
             }
 
-            _context12.next = 3;
+            _context11.next = 3;
             return regeneratorRuntime.awrap(games[socket.current_room].isWon(io, users, socket));
 
           case 3:
           case "end":
-            return _context12.stop();
+            return _context11.stop();
         }
       }
     });
